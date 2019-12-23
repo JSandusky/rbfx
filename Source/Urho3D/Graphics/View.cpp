@@ -56,6 +56,7 @@
 #include "../DebugNew.h"
 #include "View.h"
 
+extern Urho3D::SphericalHarmonicsDot9 globalSH;
 
 namespace Urho3D
 {
@@ -1235,6 +1236,7 @@ void View::GetBaseBatches()
                 Batch destBatch(srcBatch);
                 destBatch.pass_ = pass;
                 destBatch.zone_ = GetZone(drawable);
+                destBatch.sphericalHarmonics_ = globalSH;
                 destBatch.isBase_ = true;
                 destBatch.lightMask_ = (unsigned char)GetLightMask(drawable);
 
@@ -1435,6 +1437,7 @@ void View::GetLitBatches(Drawable* drawable, LightBatchQueue& lightQueue, BatchQ
 
         destBatch.lightQueue_ = &lightQueue;
         destBatch.zone_ = zone;
+        destBatch.sphericalHarmonics_ = globalSH;
 
         if (!isLitAlpha)
         {

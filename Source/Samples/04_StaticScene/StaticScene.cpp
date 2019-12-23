@@ -22,13 +22,17 @@
 
 #include <Urho3D/Core/CoreEvents.h>
 #include <Urho3D/Engine/Engine.h>
+#include <Urho3D/Glow/IncrementalLightmapper.h>
 #include <Urho3D/Graphics/Camera.h>
 #include <Urho3D/Graphics/Graphics.h>
 #include <Urho3D/Graphics/Material.h>
 #include <Urho3D/Graphics/Model.h>
 #include <Urho3D/Graphics/Octree.h>
 #include <Urho3D/Graphics/Renderer.h>
+#include <Urho3D/Graphics/Skybox.h>
 #include <Urho3D/Graphics/StaticModel.h>
+#include <Urho3D/Graphics/TextureCube.h>
+#include <Urho3D/Graphics/Zone.h>
 #include <Urho3D/Input/Input.h>
 #include <Urho3D/Resource/ResourceCache.h>
 #include <Urho3D/Scene/Scene.h>
@@ -40,6 +44,7 @@
 
 #include <Urho3D/DebugNew.h>
 
+SphericalHarmonicsDot9 globalSH;
 
 StaticScene::StaticScene(Context* context) :
     Sample(context)
@@ -48,6 +53,20 @@ StaticScene::StaticScene(Context* context) :
 
 void StaticScene::Start()
 {
+    //
+    auto skybox = context_->GetCache()->GetResource<TextureCube>("Textures/Skybox-2.xml");
+    auto sh = skybox->CalculateSphericalHarmonics();
+    SphericalHarmonicsDot9 dot{ sh };
+    globalSH = dot;
+
+    for (unsigned i = 0; i < 10000; ++i)
+    {
+        const auto dir = Vector3(Random(-1.0f, 1.0f), Random(-1.0f, 1.0f), Random(-1.0f, 1.0f)).Normalized();
+        const Vector3 c1 = sh.Evaluate(dir);
+        const Vector3 c2 = dot.Evaluate(dir);
+        assert(c1.Equals(c2, M_LARGE_EPSILON));
+    }
+
     // Execute base class startup
     Sample::Start();
 
@@ -69,50 +88,55 @@ void StaticScene::Start()
 
 void StaticScene::CreateScene()
 {
+    auto* renderer = GetSubsystem<Renderer>();
+    //renderer->SetDynamicInstancing(false);
+
     auto* cache = GetSubsystem<ResourceCache>();
 
     scene_ = new Scene(context_);
-
-    // Create the Octree component to the scene. This is required before adding any drawable components, or else nothing will
-    // show up. The default octree volume will be from (-1000, -1000, -1000) to (1000, 1000, 1000) in world coordinates; it
-    // is also legal to place objects outside the volume but their visibility can then not be checked in a hierarchically
-    // optimizing manner
     scene_->CreateComponent<Octree>();
+    auto zone = scene_->CreateComponent<Zone>();
+    zone->SetAmbientColor(Color::YELLOW * 0.3f);
+    //scene_->LoadFile("Scenes/LM_0.xml");
 
-    // Create a child scene node (at world origin) and a StaticModel component into it. Set the StaticModel to show a simple
-    // plane mesh with a "stone" material. Note that naming the scene nodes is optional. Scale the scene node larger
-    // (100 x 100 world units)
-    Node* planeNode = scene_->CreateChild("Plane");
-    planeNode->SetScale(Vector3(100.0f, 1.0f, 100.0f));
-    auto* planeObject = planeNode->CreateComponent<StaticModel>();
-    planeObject->SetModel(cache->GetResource<Model>("Models/Plane.mdl"));
-    planeObject->SetMaterial(cache->GetResource<Material>("Materials/StoneTiled.xml"));
+    {
+        auto sphereNode = scene_->CreateChild("Sphere");
+        sphereNode->SetPosition({ -1, 0, 0 });
+        auto sphere = sphereNode->CreateComponent<StaticModel>();
+        sphere->SetModel(cache->GetResource<Model>("Models/Sphere.mdl"));
+        sphere->SetMaterial(cache->GetResource<Material>("Materials/DefaultGrey.xml"));
+    }
 
-    // Create a directional light to the world so that we can see something. The light scene node's orientation controls the
-    // light direction; we will use the SetDirection() function which calculates the orientation from a forward direction vector.
-    // The light will use default settings (white light, no shadows)
+    {
+        auto sphereNode = scene_->CreateChild("Sphere");
+        sphereNode->SetPosition({ 1, 0, 0 });
+        auto sphere = sphereNode->CreateComponent<StaticModel>();
+        sphere->SetModel(cache->GetResource<Model>("Models/Sphere.mdl"));
+        sphere->SetMaterial(cache->GetResource<Material>("Materials/DefaultGrey.xml"));
+    }
+
+    Node* skyNode = scene_->CreateChild("Sky");
+    auto skybox = skyNode->CreateComponent<Skybox>();
+    skybox->SetModel(cache->GetResource<Model>("Models/Box.mdl"));
+    skybox->SetMaterial(cache->GetResource<Material>("Materials/Skybox-2.xml"));
+
     Node* lightNode = scene_->CreateChild("DirectionalLight");
-    lightNode->SetDirection(Vector3(0.6f, -1.0f, 0.8f)); // The direction vector does not need to be normalized
+    lightNode->SetDirection(Vector3(-0.6f, -1.0f, -0.8f)); // The direction vector does not need to be normalized
     auto* light = lightNode->CreateComponent<Light>();
     light->SetLightType(LIGHT_DIRECTIONAL);
 
-    // Create more StaticModel objects to the scene, randomly positioned, rotated and scaled. For rotation, we construct a
-    // quaternion from Euler angles where the Y angle (rotation about the Y axis) is randomized. The mushroom model contains
-    // LOD levels, so the StaticModel component will automatically select the LOD level according to the view distance (you'll
-    // see the model get simpler as it moves further away). Finally, rendering a large number of the same object with the
-    // same material allows instancing to be used, if the GPU supports it. This reduces the amount of CPU work in rendering the
-    // scene.
-    const unsigned NUM_OBJECTS = 200;
-    for (unsigned i = 0; i < NUM_OBJECTS; ++i)
-    {
-        Node* mushroomNode = scene_->CreateChild("Mushroom");
-        mushroomNode->SetPosition(Vector3(Random(90.0f) - 45.0f, 0.0f, Random(90.0f) - 45.0f));
-        mushroomNode->SetRotation(Quaternion(0.0f, Random(360.0f), 0.0f));
-        mushroomNode->SetScale(0.5f + Random(2.0f));
-        auto* mushroomObject = mushroomNode->CreateComponent<StaticModel>();
-        mushroomObject->SetModel(cache->GetResource<Model>("Models/Mushroom.mdl"));
-        mushroomObject->SetMaterial(cache->GetResource<Material>("Materials/Mushroom.xml"));
-    }
+    /*DefaultLightmapSceneCollector sceneCollector;
+    LightmapMemoryCache lightmapCache;
+    LightmapSettings lightmapSettings;
+    IncrementalLightmapperSettings incrementalSettings;
+    incrementalSettings.chunkSize_ = Vector3::ONE * 16;
+    incrementalSettings.raytracingScenePadding_ = 0.0f;
+    incrementalSettings.outputDirectory_ = cache->GetResourceDir(1);
+
+    IncrementalLightmapper lightmapper;
+    lightmapper.Initialize(lightmapSettings, incrementalSettings, scene_, &sceneCollector, &lightmapCache);
+    lightmapper.ProcessScene();
+    lightmapper.Bake();*/
 
     // Create a scene node for the camera, which we will move around
     // The camera will use default settings (1000 far clip distance, 45 degrees FOV, set aspect ratio automatically)
@@ -120,7 +144,10 @@ void StaticScene::CreateScene()
     cameraNode_->CreateComponent<Camera>();
 
     // Set an initial position for the camera scene node above the plane
-    cameraNode_->SetPosition(Vector3(0.0f, 5.0f, 0.0f));
+    cameraNode_->SetPosition(Vector3(0.0f, 0.5f, -3.0f));
+    cameraNode_->SetDirection(Vector3(0.0f, 0.0f, 5.0f));
+    yaw_ = cameraNode_->GetRotation().YawAngle();
+    pitch_ = cameraNode_->GetRotation().PitchAngle();
 }
 
 void StaticScene::CreateInstructions()
@@ -159,7 +186,7 @@ void StaticScene::MoveCamera(float timeStep)
     auto* input = GetSubsystem<Input>();
 
     // Movement speed as world units per second
-    const float MOVE_SPEED = 20.0f;
+    const float MOVE_SPEED = 7.0f;
     // Mouse sensitivity as degrees per pixel
     const float MOUSE_SENSITIVITY = 0.1f;
 
@@ -182,6 +209,9 @@ void StaticScene::MoveCamera(float timeStep)
         cameraNode_->Translate(Vector3::LEFT * MOVE_SPEED * timeStep);
     if (input->GetKeyDown(KEY_D))
         cameraNode_->Translate(Vector3::RIGHT * MOVE_SPEED * timeStep);
+
+    if (input->GetKeyPress(KEY_Q))
+        context_->GetRenderer()->SetSphericalHarmonics(!context_->GetRenderer()->GetSphericalHarmonics());
 }
 
 void StaticScene::SubscribeToEvents()

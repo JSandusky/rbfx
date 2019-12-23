@@ -141,8 +141,8 @@ void SamplesManager::Setup()
 #if MOBILE
     engineParameters_[EP_ORIENTATIONS] = "Portrait";
 #else
-    engineParameters_[EP_WINDOW_WIDTH] = 1440;
-    engineParameters_[EP_WINDOW_HEIGHT] = 900;
+    //engineParameters_[EP_WINDOW_WIDTH] = 1440;
+    //engineParameters_[EP_WINDOW_HEIGHT] = 900;
 #endif
     if (!engineParameters_.contains(EP_RESOURCE_PREFIX_PATHS))
         engineParameters_[EP_RESOURCE_PREFIX_PATHS] = ";..;../..";

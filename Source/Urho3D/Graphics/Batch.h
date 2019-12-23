@@ -28,6 +28,7 @@
 #include "../Math/MathDefs.h"
 #include "../Math/Matrix3x4.h"
 #include "../Math/Rect.h"
+#include "../Math/SphericalHarmonics.h"
 
 namespace Urho3D
 {
@@ -108,6 +109,8 @@ struct Batch
     ShaderVariation* pixelShader_{};
     /// %Geometry type.
     GeometryType geometryType_{};
+    /// Spherical harmonics.
+    SphericalHarmonicsDot9 sphericalHarmonics_{};
     /// Lightmap scale and offset.
     Vector4* lightmapScaleOffset_;
     /// Lightmap index.
@@ -121,8 +124,10 @@ struct InstanceData
     InstanceData() = default;
 
     /// Construct with transform, instancing data and distance.
-    InstanceData(const Matrix3x4* worldTransform, const void* instancingData, float distance) :
+    InstanceData(const Matrix3x4* worldTransform, const SphericalHarmonicsDot9& sphericalHarmonics,
+        const void* instancingData, float distance) :
         worldTransform_(worldTransform),
+        sphericalHarmonics_(sphericalHarmonics),
         instancingData_(instancingData),
         distance_(distance)
     {
@@ -130,6 +135,9 @@ struct InstanceData
 
     /// World transform.
     const Matrix3x4* worldTransform_{};
+    /// Spherical harmonics.
+    /// TODO(glow): Make optional
+    SphericalHarmonicsDot9 sphericalHarmonics_;
     /// Instancing data buffer.
     const void* instancingData_{};
     /// Distance from camera.
@@ -161,6 +169,7 @@ struct BatchGroup : public Batch
         InstanceData newInstance;
         newInstance.distance_ = batch.distance_;
         newInstance.instancingData_ = batch.instancingData_;
+        newInstance.sphericalHarmonics_ = batch.sphericalHarmonics_;
 
         for (unsigned i = 0; i < batch.numWorldTransforms_; ++i)
         {

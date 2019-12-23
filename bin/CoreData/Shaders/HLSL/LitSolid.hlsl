@@ -27,6 +27,15 @@ void VS(float4 iPos : POSITION,
     #endif
     #ifdef INSTANCED
         float4x3 iModelInstance : TEXCOORD4,
+        #if !defined(LIGHTMAP) && defined(SPHERICALHARMONICS)
+            float4 iSHArInstance : TEXCOORD7,
+            float4 iSHAgInstance : TEXCOORD8,
+            float4 iSHAbInstance : TEXCOORD9,
+            float4 iSHBrInstance : TEXCOORD10,
+            float4 iSHBgInstance : TEXCOORD11,
+            float4 iSHBbInstance : TEXCOORD12,
+            float4 iSHCInstance  : TEXCOORD13,
+        #endif
     #endif
     #if defined(BILLBOARD) || defined(DIRBILLBOARD)
         float2 iSize : TEXCOORD1,
@@ -39,18 +48,21 @@ void VS(float4 iPos : POSITION,
     #endif
     out float3 oNormal : TEXCOORD1,
     out float4 oWorldPos : TEXCOORD2,
+    out float3 oVertexLight : TEXCOORD4,
     #ifdef PERPIXEL
+        #if defined(LIGHTMAP)
+            out float2 oTexCoord2 : TEXCOORD5,
+        #endif
         #ifdef SHADOW
-            out float4 oShadowPos[NUMCASCADES] : TEXCOORD4,
+            out float4 oShadowPos[NUMCASCADES] : TEXCOORD6,
         #endif
         #ifdef SPOTLIGHT
-            out float4 oSpotPos : TEXCOORD5,
+            out float4 oSpotPos : TEXCOORD7,
         #endif
         #ifdef POINTLIGHT
-            out float3 oCubeMaskVec : TEXCOORD5,
+            out float3 oCubeMaskVec : TEXCOORD7,
         #endif
     #else
-        out float3 oVertexLight : TEXCOORD4,
         out float4 oScreenPos : TEXCOORD5,
         #ifdef ENVCUBEMAP
             out float3 oReflectionVec : TEXCOORD6,
@@ -112,6 +124,21 @@ void VS(float4 iPos : POSITION,
         #ifdef POINTLIGHT
             oCubeMaskVec = mul(worldPos - cLightPos.xyz, (float3x3)cLightMatrices[0]);
         #endif
+
+        // Ambient lighting
+        #if defined(LIGHTMAP)
+            // If using lightmap, disregard zone ambient light
+            // If using AO, calculate ambient in the PS
+            oVertexLight = float3(0.0, 0.0, 0.0);
+            oTexCoord2 = GetLightMapTexCoord(iTexCoord2);
+        #else //if defined(AMBIENT)
+            #ifdef SPHERICALHARMONICS
+                oVertexLight = EvaluateSH01(float4(oNormal, 1), iSHAr, iSHAg, iSHAb);
+                oVertexLight += EvaluateSH2(float4(oNormal, 1), iSHBr, iSHBg, iSHBb, iSHC);
+            #else
+                oVertexLight = GetAmbient(GetZonePos(worldPos));
+            #endif
+        #endif
     #else
         // Ambient & per-vertex lighting
         #if defined(LIGHTMAP) || defined(AO)
@@ -120,14 +147,19 @@ void VS(float4 iPos : POSITION,
             oVertexLight = float3(0.0, 0.0, 0.0);
             oTexCoord2 = GetLightMapTexCoord(iTexCoord2);
         #else
-            oVertexLight = GetAmbient(GetZonePos(worldPos));
+            #ifdef SPHERICALHARMONICS
+                oVertexLight = EvaluateSH01(float4(oNormal, 1), iSHAr, iSHAg, iSHAb);
+                oVertexLight += EvaluateSH2(float4(oNormal, 1), iSHBr, iSHBg, iSHBb, iSHC);
+            #else
+                oVertexLight = GetAmbient(GetZonePos(worldPos));
+            #endif
         #endif
 
         #ifdef NUMVERTEXLIGHTS
             for (int i = 0; i < NUMVERTEXLIGHTS; ++i)
                 oVertexLight += GetVertexLight(i, worldPos, oNormal) * cVertexLights[i * 3].rgb;
         #endif
-        
+
         oScreenPos = GetScreenPos(oPos);
 
         #ifdef ENVCUBEMAP
@@ -145,18 +177,21 @@ void PS(
     #endif
     float3 iNormal : TEXCOORD1,
     float4 iWorldPos : TEXCOORD2,
+    float3 iVertexLight : TEXCOORD4,
     #ifdef PERPIXEL
+        #if defined(LIGHTMAP)
+            float2 iTexCoord2 : TEXCOORD5,
+        #endif
         #ifdef SHADOW
-            float4 iShadowPos[NUMCASCADES] : TEXCOORD4,
+            float4 iShadowPos[NUMCASCADES] : TEXCOORD6,
         #endif
         #ifdef SPOTLIGHT
-            float4 iSpotPos : TEXCOORD5,
+            float4 iSpotPos : TEXCOORD7,
         #endif
         #ifdef POINTLIGHT
-            float3 iCubeMaskVec : TEXCOORD5,
+            float3 iCubeMaskVec : TEXCOORD7,
         #endif
     #else
-        float3 iVertexLight : TEXCOORD4,
         float4 iScreenPos : TEXCOORD5,
         #ifdef ENVCUBEMAP
             float3 iReflectionVec : TEXCOORD6,
@@ -238,7 +273,7 @@ void PS(
         #else
             lightColor = cLightColor.rgb;
         #endif
-    
+
         #ifdef SPECULAR
             float spec = GetSpecular(normal, cCameraPosPS - iWorldPos.xyz, lightDir, cMatSpecColor.a);
             finalColor = diff * lightColor * (diffColor.rgb + spec * specColor * cLightColor.a);
@@ -247,7 +282,7 @@ void PS(
         #endif
 
         #ifdef AMBIENT
-            finalColor += cAmbientColor.rgb * diffColor.rgb;
+            finalColor += iVertexLight * diffColor.rgb;
             finalColor += cMatEmissiveColor;
             oColor = float4(GetFog(finalColor, fogFactor), diffColor.a);
         #else

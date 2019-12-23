@@ -1,0 +1,9 @@
+<cubemap>
+    <face name="S2_PosX.png" />
+    <face name="S2_NegX.png" />
+    <face name="S2_PosY.png" />
+    <face name="S2_NegY.png" />
+    <face name="S2_PosZ.png" />
+    <face name="S2_NegZ.png" />
+    <quality low="0" />
+</cubemap>

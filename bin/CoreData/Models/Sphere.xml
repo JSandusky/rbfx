@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<model>
+	<metadata name="LightmapSize" type="IntVector2" value="59 35" />
+	<metadata name="LightmapDensity" type="Int" value="10" />
+</model>
