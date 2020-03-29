@@ -47,7 +47,7 @@ namespace Urho3DNet
         internal int _ReleaseRefNet()
         {
             if (Interlocked.CompareExchange(ref _netRefs, 0, 0) == 0)
-                return -1;
+                return 0;
 
             int netRefs = Interlocked.Decrement(ref _netRefs);
             if (netRefs == 0)

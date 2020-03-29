@@ -88,6 +88,9 @@ int RefCounted::AddRef()
 
 int RefCounted::ReleaseRef()
 {
+    if (refCount_ == nullptr)
+        return 0;
+
     int refs = ea::Internal::atomic_decrement(&refCount_->refs_);
     assert(refs >= 0);
 
