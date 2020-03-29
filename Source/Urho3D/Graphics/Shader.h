@@ -54,7 +54,7 @@ public:
     ShaderVariation* GetVariation(ShaderType type, const char* defines);
 
     /// Return either vertex or pixel shader source code.
-    const ea::string& GetSourceCode(ShaderType type) const { return type == VS ? vsSourceCode_ : type == PS ? psSourceCode_ : csSourceCode_; }
+    const ea::string& GetSourceCode(ShaderType type) const;
 
     /// Return the latest timestamp of the shader code and its includes.
     unsigned GetTimeStamp() const { return timeStamp_; }
@@ -69,18 +69,26 @@ private:
     /// Recalculate the memory used by the shader.
     void RefreshMemoryUse();
 
-    /// Source code adapted for vertex shader.
-    ea::string vsSourceCode_;
-    /// Source code adapted for pixel shader.
-    ea::string psSourceCode_;
-    /// Source code adapted for compute shader.
-    ea::string csSourceCode_;
-    /// Vertex shader variations.
-    ea::unordered_map<unsigned, SharedPtr<ShaderVariation> > vsVariations_;
-    /// Pixel shader variations.
-    ea::unordered_map<unsigned, SharedPtr<ShaderVariation> > psVariations_;
-    /// Compute shader variations.
-    ea::unordered_map<unsigned, SharedPtr<ShaderVariation> > csVariations_;
+    struct ShaderData
+    {
+        /// Source code for the shader stage.
+        ea::string sourceCode_;
+        /// Variations.
+        ea::unordered_map<unsigned, SharedPtr<ShaderVariation> > variations_;
+    };
+
+    /// Vertex shader data.
+    ShaderData vsData_;
+    /// Hull shader data.
+    ShaderData hsData_;
+    /// Domain shader data.
+    ShaderData dsData_;
+    /// Geometry shader data.
+    ShaderData gsData_;
+    /// Pixel shader data.
+    ShaderData psData_;
+    /// Compute shader data.
+    ShaderData csData_;
     /// Source code timestamp.
     unsigned timeStamp_;
     /// Number of unique variations so far.

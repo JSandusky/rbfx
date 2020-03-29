@@ -99,26 +99,31 @@ bool Shader::BeginLoad(Deserializer& source)
         return false;
 
     // Comment out the unneeded shader function
-    vsSourceCode_ = shaderCode;
-    psSourceCode_ = shaderCode;
-    csSourceCode_ = shaderCode;
+#define SETUP_SOURCE(WHO, A, B, C, D, E) WHO ## Data_.sourceCode_ = shaderCode; \
+    CommentOutFunction( WHO ## Data_.sourceCode_, "void " #A "("); \
+    CommentOutFunction( WHO ## Data_.sourceCode_, "void " #B "("); \
+    CommentOutFunction( WHO ## Data_.sourceCode_, "void " #C "("); \
+    CommentOutFunction( WHO ## Data_.sourceCode_, "void " #D "("); \
+    CommentOutFunction( WHO ## Data_.sourceCode_, "void " #E "(");
 
-    CommentOutFunction(vsSourceCode_, "void PS(");
-    CommentOutFunction(vsSourceCode_, "void CS(");
-
-    CommentOutFunction(psSourceCode_, "void VS(");
-    CommentOutFunction(psSourceCode_, "void CS(");
-
-    CommentOutFunction(csSourceCode_, "void VS(");
-    CommentOutFunction(csSourceCode_, "void PS(");
+    SETUP_SOURCE(vs, PS, HS, DS, GS, CS);
+    SETUP_SOURCE(ps, VS, HS, DS, GS, CS);
+    SETUP_SOURCE(hs, PS, VS, DS, GS, CS);
+    SETUP_SOURCE(ds, PS, HS, VS, GS, CS);
+    SETUP_SOURCE(gs, PS, HS, DS, VS, CS);
+    SETUP_SOURCE(cs, PS, HS, DS, GS, VS);
 
     // OpenGL: rename either VS() or PS() to main()
 #ifdef URHO3D_OPENGL
 #define HANDLE_SHADER_STAGE(SHORTNAME, LCASESHORTNAME) \
-    LCASESHORTNAME ## SourceCode_.replace("void " #SHORTNAME "(", "void main(");
+    LCASESHORTNAME ## Data_.sourceCode_.replace("void " #SHORTNAME "(", "void main(");
 
     HANDLE_SHADER_STAGE(VS, vs);
     HANDLE_SHADER_STAGE(PS, ps);
+
+    HANDLE_SHADER_STAGE(HS, hs);
+    HANDLE_SHADER_STAGE(DS, ds);
+    HANDLE_SHADER_STAGE(GS, gs);
     HANDLE_SHADER_STAGE(CS, cs);
 
 #undef HANDLE_SHADER_STAGE
@@ -131,10 +136,13 @@ bool Shader::BeginLoad(Deserializer& source)
 bool Shader::EndLoad()
 {
 #define FREE_VARIATIONS(STAGE) \
-    for (auto i = STAGE ## Variations_.begin(); i != STAGE ## Variations_.end(); ++i) i->second->Release();
+    for (auto i = STAGE ## Data_.variations_.begin(); i != STAGE ## Data_.variations_.end(); ++i) i->second->Release();
 
     // If variations had already been created, release them and require recompile
     FREE_VARIATIONS(vs);
+    FREE_VARIATIONS(hs);
+    FREE_VARIATIONS(ds);
+    FREE_VARIATIONS(gs);
     FREE_VARIATIONS(ps);
     FREE_VARIATIONS(cs);
 
@@ -156,13 +164,22 @@ ShaderVariation* Shader::GetVariation(ShaderType type, const char* defines)
     switch (type)
     {
     case VS:
-        variations = &vsVariations_;
+        variations = &vsData_.variations_;
         break;
     case PS:
-        variations = &psVariations_;
+        variations = &psData_.variations_;
         break;
     case CS:
-        variations = &csVariations_;
+        variations = &csData_.variations_;
+        break;
+    case HS:
+        variations = &hsData_.variations_;
+        break;
+    case DS:
+        variations = &dsData_.variations_;
+        break;
+    case GS:
+        variations = &gsData_.variations_;
         break;
     }
 
@@ -196,6 +213,26 @@ ShaderVariation* Shader::GetVariation(ShaderType type, const char* defines)
     }
 
     return i->second;
+}
+
+const ea::string& Shader::GetSourceCode(ShaderType type) const
+{
+    switch (type)
+    {
+    case VS:
+        return vsData_.sourceCode_;
+    case HS:
+        return hsData_.sourceCode_;
+    case DS:
+        return dsData_.sourceCode_;
+    case GS:
+        return gsData_.sourceCode_;
+    case PS:
+        return psData_.sourceCode_;
+    case CS:
+        return csData_.sourceCode_;
+    }
+    return vsData_.sourceCode_;
 }
 
 unsigned Shader::GetShaderDefinesHash(const char* defines) const
@@ -265,9 +302,12 @@ void Shader::RefreshMemoryUse()
 {
     SetMemoryUse(
         (unsigned)(sizeof(Shader) +
-            vsSourceCode_.length() +
-            psSourceCode_.length() +
-            csSourceCode_.length() +
+            vsData_.sourceCode_.length() +
+            psData_.sourceCode_.length() +
+            csData_.sourceCode_.length() +
+            hsData_.sourceCode_.length() +
+            dsData_.sourceCode_.length() +
+            gsData_.sourceCode_.length() +
             numVariations_ * sizeof(ShaderVariation)));
 }
 
