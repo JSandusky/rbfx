@@ -257,6 +257,12 @@ bool ShaderVariation::LoadByteCode(const ea::string& binaryShaderName)
 
         if (type_ == VS)
             URHO3D_LOGDEBUG("Loaded cached vertex shader " + GetFullName());
+        else if (type_ == HS)
+            URHO3D_LOGDEBUG("Loaded cached hull shader " + GetFullName());
+        else if (type_ == DS)
+            URHO3D_LOGDEBUG("Loaded cached domain shader " + GetFullName());
+        else if (type_ == GS)
+            URHO3D_LOGDEBUG("Loaded cached geometry shader " + GetFullName());
         else if (type_ == CS)
             URHO3D_LOGDEBUG("Loaded cached compute shader " + GetFullName());
         else
@@ -302,9 +308,9 @@ bool ShaderVariation::Compile()
         defines.emplace_back("COMPILEHS");
         profile = "hs_5_0";
     }
-    else if (type_ == HS)
+    else if (type_ == DS)
     {
-        entryPoint = "dS";
+        entryPoint = "DS";
         defines.emplace_back("COMPILEDS");
         profile = "ds_5_0";
     }

@@ -3463,6 +3463,9 @@ void Graphics::ResetCachedState()
     indexBuffer_ = nullptr;
     vertexShader_ = nullptr;
     pixelShader_ = nullptr;
+    hullShader_ = nullptr;
+    domainShader_ = nullptr;
+    geometryShader_ = nullptr;
     blendMode_ = BLEND_REPLACE;
     alphaToCoverage_ = false;
     colorWrite_ = true;

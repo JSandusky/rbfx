@@ -41,6 +41,15 @@ public:
     {
         // Create needed constant buffers
         const unsigned* vsBufferSizes = vertexShader->GetConstantBufferSizes();
+        unsigned vertexProcessingSizes[MAX_SHADER_PARAMETER_GROUPS] = {
+            vsBufferSizes[0],
+            vsBufferSizes[1],
+            vsBufferSizes[2],
+            vsBufferSizes[3],
+            vsBufferSizes[4],
+            vsBufferSizes[5],
+            vsBufferSizes[6]
+        };
         for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
         {
             if (vsBufferSizes[i])
@@ -70,18 +79,38 @@ public:
         }
 
         // The other stages are all expected to use the VS buffers.
-        static auto vsFiller = [](Graphics* graphics, ea::unordered_map<StringHash, ShaderParameter>& vsParams, SharedPtr<ConstantBuffer>* vsConstantBuffers, ShaderVariation* inQuestion, const char* stageName) {
+        static auto vsFiller = [](Graphics* graphics, ea::unordered_map<StringHash, ShaderParameter>& vsParams, SharedPtr<ConstantBuffer>* vsConstantBuffers, unsigned* vsBufferSizes, ShaderVariation* inQuestion, const char* stageName) {
             if (inQuestion)
             {
                 const unsigned* sizes = inQuestion->GetConstantBufferSizes();
                 for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
                 {
-                    if (vsConstantBuffers[i] && vsConstantBuffers[i]->GetSize() != sizes[i])
+                    if (sizes[i] != vsBufferSizes[i] && sizes[i] != 0)
                     {
-                        URHO3D_LOGERROR("Constant buffer size mismatch between VS and {}, VS has {} while {} has {}", stageName, vsConstantBuffers[i]->GetSize(), stageName, sizes[i]);
+                        if (vsBufferSizes[i] == 0)
+                        {
+                            vsConstantBuffers[i] = graphics->GetOrCreateConstantBuffer(VS, i, sizes[i]);
+                            vsBufferSizes[i] = sizes[i];
+                        }
+                        else
+                        {
+                            switch (inQuestion->GetShaderType())
+                            {
+                            case HS:
+                                URHO3D_LOGERRORF("Hull shader and vertex shader constant buffer mismatch: GS size {}, VS size {} at index %u", sizes[i], vsBufferSizes[i], i);
+                                URHO3D_LOGINFO("Hull and vertex shaders must use matching constant buffers");
+                                break;
+                            case DS:
+                                URHO3D_LOGERRORF("Domain shader and vertex shader constant buffer mismatch: GS size {}, VS size {} at index %u", sizes[i], vsBufferSizes[i], i);
+                                URHO3D_LOGINFO("Domain and vertex shaders must use matching constant buffers");
+                                break;
+                            case GS:
+                                URHO3D_LOGERRORF("Geometry shader and vertex shader constant buffer mismatch: GS size {}, VS size {} at index %u", sizes[i], vsBufferSizes[i], i);
+                                URHO3D_LOGINFO("Geometry and vertex shaders must use matching constant buffers");
+                                break;
+                            }
+                        }
                     }
-                    else if (vsConstantBuffers[i].Null())
-                        vsConstantBuffers[i] = graphics->GetOrCreateConstantBuffer(VS, i, sizes[i]);
                 }
 
                 const auto& qParams = inQuestion->GetParameters();
@@ -96,9 +125,9 @@ public:
             }
         };
 
-        vsFiller(graphics, parameters_, vsConstantBuffers_, hullShader, "HS");
-        vsFiller(graphics, parameters_, vsConstantBuffers_, domainShader, "DS");
-        vsFiller(graphics, parameters_, vsConstantBuffers_, geometryShader, "GS");
+        vsFiller(graphics, parameters_, vsConstantBuffers_, vertexProcessingSizes, hullShader, "HS");
+        vsFiller(graphics, parameters_, vsConstantBuffers_, vertexProcessingSizes, domainShader, "DS");
+        vsFiller(graphics, parameters_, vsConstantBuffers_, vertexProcessingSizes, geometryShader, "GS");
 
         // Optimize shader parameter lookup by rehashing to next power of two
         parameters_.rehash(Max(2u, NextPowerOfTwo(parameters_.size())));

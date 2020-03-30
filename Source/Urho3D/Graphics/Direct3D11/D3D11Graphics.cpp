@@ -216,8 +216,8 @@ Graphics::Graphics(Context* context) :
     // Register Graphics library object factories
     RegisterGraphicsLibrary(context_);
 
-    tessellationSupported_ = true;
-    geometryShaderSupported_ = true;
+    tessellationSupport_ = true;
+    geometryShaderSupport_ = true;
 }
 
 Graphics::~Graphics()
@@ -785,8 +785,8 @@ void Graphics::Draw(PrimitiveType type, unsigned vertexStart, unsigned vertexCou
         type = POINT_LIST;
 
     GetD3DPrimitiveType(vertexCount, type, primitiveCount, d3dPrimitiveType);
-    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
-        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+    if (hullShader_ && domainShader_)
+        d3dPrimitiveType = D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
 
     if (d3dPrimitiveType != primitiveType_)
     {
@@ -813,7 +813,7 @@ void Graphics::Draw(PrimitiveType type, unsigned indexStart, unsigned indexCount
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
-    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+    if (hullShader_ && domainShader_)
         d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
 
     if (d3dPrimitiveType != primitiveType_)
@@ -841,7 +841,7 @@ void Graphics::Draw(PrimitiveType type, unsigned indexStart, unsigned indexCount
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
-    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+    if (hullShader_ && domainShader_)
         d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
 
     if (d3dPrimitiveType != primitiveType_)
@@ -870,7 +870,7 @@ void Graphics::DrawInstanced(PrimitiveType type, unsigned indexStart, unsigned i
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
-    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+    if (hullShader_ && domainShader_)
         d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
 
     if (d3dPrimitiveType != primitiveType_)
@@ -899,7 +899,7 @@ void Graphics::DrawInstanced(PrimitiveType type, unsigned indexStart, unsigned i
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
-    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+    if (hullShader_ && domainShader_)
         d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
 
     if (d3dPrimitiveType != primitiveType_)
@@ -1009,14 +1009,22 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariat
     {
         if (vs)
             vs = vs->GetOwner()->GetVariation(VS, vs->GetDefinesClipPlane());
-        if (gs) // hull/domain don't make as much sense to check against the clip-plane (impractical)
+        if (hs)
+            hs = hs->GetOwner()->GetVariation(HS, hs->GetDefinesClipPlane());
+        if (ds)
+            ds = ds->GetOwner()->GetVariation(DS, hs->GetDefinesClipPlane());
+        if (gs)
             gs = gs->GetOwner()->GetVariation(GS, gs->GetDefinesClipPlane());
         if (ps)
             ps = ps->GetOwner()->GetVariation(PS, ps->GetDefinesClipPlane());
     }
 
-    if (vs == vertexShader_ && ps == pixelShader_)
+    if (vs == vertexShader_ && ps == pixelShader_ && geometryShader_ == gs && hullShader_ == hs && domainShader_ == ds)
         return;
+
+    // whenever tessellation status would change it's necessary to call IASetInputLayout.
+    if (vs != vertexShader_ && hs != hullShader_)
+        impl_->vertexDeclarationDirty_ = true;
 
 // Nasty macro, but it takes care of all of the typing hell
 #define SET_SHADER(CAPS_STAGE, STAGE, VAR, D3DTYPE, STAGENAME) if (STAGE != VAR) { \
@@ -1044,7 +1052,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariat
     // Update current shader parameters & constant buffers
     if (vertexShader_ && pixelShader_)
     {
-        ea::pair<ShaderVariation*, ShaderVariation*> key = ea::make_pair(vertexShader_, pixelShader_);
+        ShaderTuple key = ea::make_tuple(vertexShader_, pixelShader_, hullShader_, domainShader_, geometryShader_);
         auto i = impl_->shaderPrograms_.find(key);
         if (i != impl_->shaderPrograms_.end())
             impl_->shaderProgram_ = i->second.Get();
@@ -1084,12 +1092,12 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariat
             impl_->deviceContext_->PSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[PS][0]);
 
         // The other render-stages just use what the VS has. It's verified that sizes are compatible during ShaderProgram construction and anything missing in VS will be pushed into it.
-        if (hullShader_)
+        if (vsBuffersChanged)
+        {
             impl_->deviceContext_->HSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
-        if (domainShader_)
             impl_->deviceContext_->DSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
-        if (geometryShader_)
             impl_->deviceContext_->GSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
+        }
     }
     else
         impl_->shaderProgram_ = nullptr;
@@ -1900,7 +1908,11 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* variation)
 {
     for (auto i = impl_->shaderPrograms_.begin(); i != impl_->shaderPrograms_.end();)
     {
-        if (i->first.first == variation || i->first.second == variation)
+        if (ea::get<0>(i->first) == variation ||
+            ea::get<1>(i->first) == variation ||
+            ea::get<2>(i->first) == variation ||
+            ea::get<3>(i->first) == variation ||
+            ea::get<4>(i->first) == variation)
             i = impl_->shaderPrograms_.erase(i);
         else
             ++i;
@@ -2407,6 +2419,9 @@ void Graphics::ResetCachedState()
     primitiveType_ = 0;
     vertexShader_ = nullptr;
     pixelShader_ = nullptr;
+    hullShader_ = nullptr;
+    geometryShader_ = nullptr;
+    domainShader_ = nullptr;
     blendMode_ = BLEND_REPLACE;
     alphaToCoverage_ = false;
     colorWrite_ = true;
@@ -2509,6 +2524,11 @@ void Graphics::PrepareDraw()
         {
             /// \todo Using a 64bit total hash for vertex shader and vertex buffer elements hash may not guarantee uniqueness
             newVertexDeclarationHash += vertexShader_->GetElementHash();
+            if (hullShader_)
+                CombineHash(newVertexDeclarationHash, MakeHash(hullShader_));
+            if (domainShader_)
+                CombineHash(newVertexDeclarationHash, MakeHash(domainShader_));
+
             if (newVertexDeclarationHash != vertexDeclarationHash_)
             {
                 auto i = impl_->vertexDeclarations_.find(newVertexDeclarationHash);
