@@ -42,8 +42,6 @@
 
 #include "../DebugNew.h"
 
-#pragma optimize("", off)
-
 namespace Urho3D
 {
 

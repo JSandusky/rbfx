@@ -52,7 +52,8 @@ ComputeDevice::ComputeDevice(Context* context, Graphics* graphics) :
 
 ComputeDevice::~ComputeDevice()
 {
-    ReleaseLocalState();
+    if (graphics_)
+        ReleaseLocalState();
 }
 
 bool ComputeDevice::SetProgram(SharedPtr<ShaderVariation> shaderVariation)

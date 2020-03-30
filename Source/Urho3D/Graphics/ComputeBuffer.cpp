@@ -43,7 +43,8 @@ ComputeBuffer::ComputeBuffer(Context* context) :
 
 ComputeBuffer::~ComputeBuffer()
 {
-    Release();
+    if (graphics_)
+        Release();
 }
 
 void ComputeBuffer::RegisterObject(Context* context)

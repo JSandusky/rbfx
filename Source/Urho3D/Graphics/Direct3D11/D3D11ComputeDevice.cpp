@@ -38,8 +38,6 @@
 #include "../../Graphics/GraphicsEvents.h"
 #include "../../Graphics/GraphicsImpl.h"
 
-#pragma optimize("", off)
-
 namespace Urho3D
 {
 
