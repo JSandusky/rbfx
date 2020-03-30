@@ -156,7 +156,7 @@ public:
     /// Set index buffer.
     void SetIndexBuffer(IndexBuffer* buffer);
     /// Set shaders.
-    void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
+    void SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* hs, ShaderVariation* ds, ShaderVariation* gs);
     /// Set shader float constants.
     void SetShaderParameter(StringHash param, const float data[], unsigned count);
     /// Set shader float constant.
@@ -403,6 +403,15 @@ public:
 
     /// Return current vertex shader.
     ShaderVariation* GetVertexShader() const { return vertexShader_; }
+
+    /// Return current vertex shader.
+    ShaderVariation* GetHullShader() const { return hullShader_; }
+
+    /// Return current vertex shader.
+    ShaderVariation* GetDomainShader() const { return domainShader_; }
+
+    /// Return current vertex shader.
+    ShaderVariation* GetGeometryShader() const { return geometryShader_; }
 
     /// Return current pixel shader.
     ShaderVariation* GetPixelShader() const { return pixelShader_; }
@@ -738,6 +747,12 @@ private:
     ShaderVariation* vertexShader_{};
     /// Pixel shader in use.
     ShaderVariation* pixelShader_{};
+    /// Hull shader in use.
+    ShaderVariation* hullShader_{};
+    /// Domain shader in use.
+    ShaderVariation* domainShader_{};
+    /// Geometry shader in use.
+    ShaderVariation* geometryShader_{};
     /// Textures in use.
     Texture* textures_[MAX_TEXTURE_UNITS]{};
     /// Texture unit mappings.
