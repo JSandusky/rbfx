@@ -382,8 +382,13 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool borderless, 
 
         if (!forceGL2_)
         {
+#ifdef URHO3D_COMPUTE
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+#else
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+#endif
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
             apiName_ = "GL3";
         }
@@ -2698,7 +2703,16 @@ void Graphics::Restore()
             return;
         }
 
-        if (!forceGL2_ && GLEW_VERSION_4_3)
+#ifdef URHO3D_COMPUTE
+        // Error out if we've requested compute and can't get it
+        //if (!forceGL2_ && GLEW_VERSION_4_3 == false)
+        //{
+        //    URHO3D_LOGERROR("OpenGL 4.3+ is required");
+        //    return;
+        //}
+#endif
+
+        if (!forceGL2_ && (GLEW_VERSION_4_3 || GLEW_VERSION_4_2 || GLEW_VERSION_4_1))
         {
             gl3Support = true;
             tessellationSupport_ = true;
