@@ -95,7 +95,9 @@ void ComputeDevice::ApplyBindings()
     }
 
     // Does the program require linking or bind?
-    ea::pair<ShaderVariation*, ShaderVariation*> combo(computeShader_, nullptr);
+
+    // oh this is a cheat.
+    ShaderTuple combo(computeShader_, nullptr, nullptr, nullptr, nullptr);
     auto foundExisting = graphics_->impl_->shaderPrograms_.find(combo);
     if (foundExisting != graphics_->impl_->shaderPrograms_.end())
     {

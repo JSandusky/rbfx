@@ -23,6 +23,7 @@
 #pragma once
 
 #include <EASTL/unordered_map.h>
+#include <EASTL/tuple.h>
 
 #include "../../Core/Timer.h"
 #include "../../Graphics/ConstantBuffer.h"
@@ -83,13 +84,31 @@
 
 using SDL_GLContext = void *;
 
+using ShaderTuple = ea::tuple<Urho3D::ShaderVariation*, Urho3D::ShaderVariation*, Urho3D::ShaderVariation*, Urho3D::ShaderVariation*, Urho3D::ShaderVariation*>;
+
+namespace eastl
+{
+    template<> struct hash<ShaderTuple>
+    {
+        size_t operator()(const ShaderTuple& s) const
+        {
+            size_t result = Urho3D::MakeHash(ea::get<0>(s));
+            Urho3D::CombineHash(result, MakeHash(ea::get<1>(s)));
+            Urho3D::CombineHash(result, MakeHash(ea::get<2>(s)));
+            Urho3D::CombineHash(result, MakeHash(ea::get<3>(s)));
+            Urho3D::CombineHash(result, MakeHash(ea::get<4>(s)));
+            return result;
+        }
+    };
+}
+
 namespace Urho3D
 {
 
 class Context;
 
 using ConstantBufferMap = ea::unordered_map<unsigned, SharedPtr<ConstantBuffer> >;
-using ShaderProgramMap = ea::unordered_map<ea::pair<ShaderVariation*, ShaderVariation*>, SharedPtr<ShaderProgram> >;
+using ShaderProgramMap = ea::unordered_map<ShaderTuple, SharedPtr<ShaderProgram> >;
 
 /// Cached state of a frame buffer object
 struct FrameBufferObject

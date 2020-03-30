@@ -1391,7 +1391,7 @@ void Material::ApplyShaderDefines(unsigned index)
     else
         techniques_[index].technique_ = techniques_[index].original_->CloneWithDefines(vertexShaderDefines_, pixelShaderDefines_, hullShaderDefines_, domainShaderDefines_, geometryShaderDefines_);
 #else
-    if (vertexShaderDefines_.Empty() && pixelShaderDefines_.Empty())
+    if (vertexShaderDefines_.empty() && pixelShaderDefines_.empty())
         techniques_[index].technique_ = techniques_[index].original_;
     else
         techniques_[index].technique_ = techniques_[index].original_->CloneWithDefines(vertexShaderDefines_, pixelShaderDefines_);

@@ -58,11 +58,17 @@ static unsigned NumberPostfix(const ea::string& str)
 unsigned ShaderProgram::globalFrameNumber = 0;
 const void* ShaderProgram::globalParameterSources[MAX_SHADER_PARAMETER_GROUPS];
 
-ShaderProgram::ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader) :
+ShaderProgram::ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader, ShaderVariation* hullShader, ShaderVariation* domainShader, ShaderVariation* geometryShader) :
     GPUObject(graphics),
     vertexShader_(vertexShader),
     pixelShader_(pixelShader)
 {
+#if defined(DESKTOP_GRAPHICS)
+    hullShader_ = hullShader;
+    domainShader_ = domainShader;
+    geometryShader_ = geometryShader;
+#endif
+
     for (auto& parameterSource : parameterSources_)
         parameterSource = (const void*)(uintptr_t)M_MAX_UNSIGNED;
 }
@@ -116,7 +122,7 @@ void ShaderProgram::OnDeviceLost()
     GPUObject::OnDeviceLost();
 
     if (graphics_ && graphics_->GetShaderProgram() == this)
-        graphics_->SetShaders(nullptr, nullptr);
+        graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
 
     linkerOutput_.clear();
 }
@@ -131,7 +137,7 @@ void ShaderProgram::Release()
         if (!graphics_->IsDeviceLost())
         {
             if (graphics_->GetShaderProgram() == this)
-                graphics_->SetShaders(nullptr, nullptr);
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
 
             glDeleteProgram(object_.name_);
         }
@@ -197,6 +203,18 @@ bool ShaderProgram::Link()
 
     glAttachShader(object_.name_, vertexShader_->GetGPUObjectName());
     glAttachShader(object_.name_, pixelShader_->GetGPUObjectName());
+
+#ifdef DESKTOP_GRAPHICS
+    // must have both or we're going to explode!
+    if (hullShader_ && domainShader_)
+    {
+        glAttachShader(object_.name_, hullShader_->GetGPUObjectName());
+        glAttachShader(object_.name_, domainShader_->GetGPUObjectName());
+    }
+    if (geometryShader_)
+        glAttachShader(object_.name_, geometryShader_->GetGPUObjectName());
+#endif
+
     glLinkProgram(object_.name_);
 
     int linked, length;

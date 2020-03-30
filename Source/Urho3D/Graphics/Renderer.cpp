@@ -1232,7 +1232,7 @@ void Renderer::SetBatchShaders(Batch& batch, Technique* tech, bool allowShadows,
     // stubs for loadpass shaders
     ea::vector<SharedPtr<ShaderVariation> > hullShaders;
     ea::vector<SharedPtr<ShaderVariation> > domainShaders;
-    ea::vector<SharedPtr<ShaderVariation> > geometryShader;
+    ea::vector<SharedPtr<ShaderVariation> > geometryShaders;
 #endif
 
 

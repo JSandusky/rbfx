@@ -40,7 +40,7 @@ class URHO3D_API ShaderProgram : public RefCounted, public GPUObject
 {
 public:
     /// Construct.
-    ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader);
+    ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader, ShaderVariation* hullShader, ShaderVariation* domainShader, ShaderVariation* geometryShader);
     /// Construct, exclusive to compute shader.
     explicit ShaderProgram(Graphics* graphics, ShaderVariation* computeShader);
     /// Destruct.
@@ -58,6 +58,12 @@ public:
     ShaderVariation* GetVertexShader() const;
     /// Return the pixel shader.
     ShaderVariation* GetPixelShader() const;
+    /// Return the hull shader.
+    ShaderVariation* GetHullShader() const { return hullShader_; }
+    /// Return the domain shader.
+    ShaderVariation* GetDomainShader() const { return domainShader_; }
+    /// Return the geometry shader.
+    ShaderVariation* GetGeometryShader() const { return geometryShader_; }
     /// Return the compute shader.
     ShaderVariation* GetComputeShader() const;
     /// Return whether uses a shader parameter.
@@ -96,6 +102,12 @@ private:
     WeakPtr<ShaderVariation> vertexShader_;
     /// Pixel shader.
     WeakPtr<ShaderVariation> pixelShader_;
+    /// Hull shader.
+    WeakPtr<ShaderVariation> hullShader_;
+    /// Domain shader.
+    WeakPtr<ShaderVariation> domainShader_;
+    /// Geometry shader.
+    WeakPtr<ShaderVariation> geometryShader_;
     /// Compute shader.
     WeakPtr<ShaderVariation> computeShader_;
     /// Shader parameters.

@@ -374,6 +374,12 @@ public:
     /// Return whether sRGB conversion on rendertarget writing is supported.
     bool GetSRGBWriteSupport() const { return sRGBWriteSupport_; }
 
+    /// Return whether geometry shaders are supported.
+    bool GetGeometryShaderSupport() const { return geometryShaderSupport_; }
+
+    /// Return whether tessellation shaders are supported.
+    bool GetTessellationSupport() const { return tessellationSupport_; }
+
     /// Return supported fullscreen resolutions (third component is refreshRate). Will be empty if listing the resolutions is not supported on the platform (e.g. Web).
     ea::vector<IntVector3> GetResolutions(int monitor) const;
     /// Return supported multisampling levels.
@@ -719,6 +725,10 @@ private:
     bool sRGBSupport_{};
     /// sRGB conversion on write support flag.
     bool sRGBWriteSupport_{};
+    /// Support for the GS stage.
+    bool geometryShaderSupport_{};
+    /// Support for tessellator.
+    bool tessellationSupport_{};
     /// Number of primitives this frame.
     unsigned numPrimitives_{};
     /// Number of batches this frame.

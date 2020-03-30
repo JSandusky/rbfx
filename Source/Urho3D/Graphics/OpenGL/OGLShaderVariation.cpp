@@ -66,12 +66,27 @@ void ShaderVariation::Release()
             if (type_ == VS)
             {
                 if (graphics_->GetVertexShader() == this)
-                    graphics_->SetShaders(nullptr, nullptr);
+                    graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
             }
             else if (type_ == PS)
             {
                 if (graphics_->GetPixelShader() == this)
-                    graphics_->SetShaders(nullptr, nullptr);
+                    graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+            }
+            else if (type_ == GS)
+            {
+                if (graphics_->GetGeometryShader() == this)
+                    graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+            }
+            else if (type_ == HS)
+            {
+                if (graphics_->GetHullShader() == this)
+                    graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+            }
+            else if (type_ == DS)
+            {
+                if (graphics_->GetDomainShader() == this)
+                    graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
             }
 
             glDeleteShader(object_.name_);
@@ -103,7 +118,7 @@ bool ShaderVariation::Create()
     case PS:
         shaderStage = GL_FRAGMENT_SHADER;
         break;
-#if 0
+#if !defined(MOBILE_GRAPHICS)
     case GS:
         shaderStage = GL_GEOMETRY_SHADER;
         break;
