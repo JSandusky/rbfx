@@ -179,7 +179,7 @@ void SetInstanceShaderParameters(Graphics* graphics, const InstanceShaderParamet
 
 void Batch::CalculateSortKey()
 {
-#if defined(URHO3D_DIRECT3D9) || defined(URHO3D_OPENGL)
+#if defined(URHO3D_D3D9) || defined(URHO3D_OPENGL)
     auto shaderID = (unsigned)(
         ((*((unsigned*)&vertexShader_) / sizeof(ShaderVariation)) + (*((unsigned*)&pixelShader_) / sizeof(ShaderVariation))) &
         0x7fffu);
