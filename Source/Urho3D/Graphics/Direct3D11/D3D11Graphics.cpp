@@ -215,6 +215,9 @@ Graphics::Graphics(Context* context) :
 
     // Register Graphics library object factories
     RegisterGraphicsLibrary(context_);
+
+    tessellationSupported_ = true;
+    geometryShaderSupported_ = true;
 }
 
 Graphics::~Graphics()
