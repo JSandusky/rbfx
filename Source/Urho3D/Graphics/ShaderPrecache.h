@@ -23,6 +23,7 @@
 #pragma once
 
 #include <EASTL/hash_set.h>
+#include <EASTL/tuple.h>
 
 #include "../Core/Object.h"
 #include "../Resource/XMLFile.h"
@@ -45,18 +46,20 @@ public:
     ~ShaderPrecache() override;
 
     /// Collect a shader combination. Called by Graphics when shaders have been set.
-    void StoreShaders(ShaderVariation* vs, ShaderVariation* ps);
+    void StoreShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* hs, ShaderVariation* ds, ShaderVariation* gs);
 
     /// Load shaders from an XML file.
     static void LoadShaders(Graphics* graphics, Deserializer& source);
 
 private:
+    typedef ea::tuple<ShaderVariation*, ShaderVariation*, ShaderVariation*, ShaderVariation*, ShaderVariation*> ShaderTuple;
+
     /// XML file name.
     ea::string fileName_;
     /// XML file.
     XMLFile xmlFile_;
     /// Already encountered shader combinations, pointer version for fast queries.
-    ea::hash_set<ea::pair<ShaderVariation*, ShaderVariation*> > usedPtrCombinations_;
+    ea::hash_set<uint64_t> usedPtrCombinations_;
     /// Already encountered shader combinations.
     ea::hash_set<ea::string> usedCombinations_;
 };

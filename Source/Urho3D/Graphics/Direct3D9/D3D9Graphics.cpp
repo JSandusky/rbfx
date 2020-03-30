@@ -1157,10 +1157,15 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     }
 }
 
-void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
+void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* hs, ShaderVariation* ds, ShaderVariation* gs)
 {
     if (vs == vertexShader_ && ps == pixelShader_)
         return;
+
+    if (hs || ds || gs)
+    {
+        URHO3D_LOGWARNING("Provided unsupported shader stages to Graphics::SetShaders");
+    }
 
     ClearParameterSources();
 
@@ -1243,7 +1248,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 
     // Store shader combination if shader dumping in progress
     if (shaderPrecache_)
-        shaderPrecache_->StoreShaders(vertexShader_, pixelShader_);
+        shaderPrecache_->StoreShaders(vertexShader_, pixelShader_, nullptr, nullptr, nullptr);
 }
 
 void Graphics::SetShaderParameter(StringHash param, const float data[], unsigned count)

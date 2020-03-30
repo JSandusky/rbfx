@@ -75,16 +75,26 @@ ShaderPrecache::~ShaderPrecache()
     xmlFile_.Save(dest);
 }
 
-void ShaderPrecache::StoreShaders(ShaderVariation* vs, ShaderVariation* ps)
+void ShaderPrecache::StoreShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* hs, ShaderVariation* ds, ShaderVariation* gs)
 {
     if (!vs || !ps)
         return;
 
     // Check for duplicate using pointers first (fast)
-    ea::pair<ShaderVariation*, ShaderVariation*> shaderPair = ea::make_pair(vs, ps);
-    if (usedPtrCombinations_.contains(shaderPair))
+    //ShaderTuple shaderTuple = ea::make_tuple(vs, ps, hs, ds, gs);
+
+    uint64_t shaderHash = MakeHash(vs);
+    CombineHash(shaderHash, MakeHash(ps));
+    if (gs || hs || ds)
+    {
+        CombineHash(shaderHash, MakeHash(gs));
+        CombineHash(shaderHash, MakeHash(hs));
+        CombineHash(shaderHash, MakeHash(ds));
+    }
+
+    if (usedPtrCombinations_.contains(shaderHash))
         return;
-    usedPtrCombinations_.insert(shaderPair);
+    usedPtrCombinations_.insert(shaderHash);
 
     ea::string vsName = vs->GetName();
     ea::string psName = ps->GetName();
@@ -93,6 +103,14 @@ void ShaderPrecache::StoreShaders(ShaderVariation* vs, ShaderVariation* ps)
 
     // Check for duplicate using strings (needed for combinations loaded from existing file)
     ea::string newCombination = vsName + " " + vsDefines + " " + psName + " " + psDefines;
+
+    if (gs)
+        newCombination = newCombination + " " + gs->GetName() + " " + gs->GetDefines();
+    if (hs)
+        newCombination = newCombination + " " + hs->GetName() + " " + hs->GetDefines();
+    if (ds)
+        newCombination = newCombination + " " + ds->GetName() + " " + ds->GetDefines();
+
     if (usedCombinations_.contains(newCombination))
         return;
     usedCombinations_.insert(newCombination);
@@ -102,6 +120,24 @@ void ShaderPrecache::StoreShaders(ShaderVariation* vs, ShaderVariation* ps)
     shaderElem.SetAttribute("vsdefines", vsDefines);
     shaderElem.SetAttribute("ps", psName);
     shaderElem.SetAttribute("psdefines", psDefines);
+
+    if (gs)
+    {
+        shaderElem.SetAttribute("gs", gs->GetName());
+        shaderElem.SetAttribute("gsdefines", gs->GetDefines());
+    }
+
+    if (hs)
+    {
+        shaderElem.SetAttribute("hs", hs->GetName());
+        shaderElem.SetAttribute("hsdefines", hs->GetDefines());
+    }
+
+    if (ds)
+    {
+        shaderElem.SetAttribute("ds", ds->GetName());
+        shaderElem.SetAttribute("dsdefines", ds->GetDefines());
+    }
 }
 
 void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)

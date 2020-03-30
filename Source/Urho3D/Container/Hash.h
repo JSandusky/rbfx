@@ -41,6 +41,11 @@ inline void CombineHash(unsigned& result, unsigned hash)
     result ^= hash + 0x9e3779b9 + (result << 6) + (result >> 2);
 }
 
+inline void CombineHash(unsigned long long& result, unsigned hash)
+{
+    result ^= hash + 0x9e3779b9 + (result << 6) + (result >> 2);
+}
+
 /// Make hash template helper.
 template <class T>
 inline unsigned MakeHash(const T& value)

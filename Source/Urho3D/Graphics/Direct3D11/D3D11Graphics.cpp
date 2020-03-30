@@ -1093,7 +1093,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariat
 
     // Store shader combination if shader dumping in progress
     if (shaderPrecache_)
-        shaderPrecache_->StoreShaders(vertexShader_, pixelShader_);
+        shaderPrecache_->StoreShaders(vertexShader_, pixelShader_, hullShader_, domainShader_, geometryShader_);
 
     // Update clip plane parameter if necessary
     if (useClipPlane_)

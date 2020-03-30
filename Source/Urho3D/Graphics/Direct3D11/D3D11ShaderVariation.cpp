@@ -296,6 +296,24 @@ bool ShaderVariation::Compile()
         defines.emplace_back("COMPILECS");
         profile = "cs_5_0";
     }
+    else if (type_ == HS)
+    {
+        entryPoint = "HS";
+        defines.emplace_back("COMPILEHS");
+        profile = "hs_5_0";
+    }
+    else if (type_ == HS)
+    {
+        entryPoint = "dS";
+        defines.emplace_back("COMPILEDS");
+        profile = "ds_5_0";
+    }
+    else if (type_ == GS)
+    {
+        entryPoint = "GS";
+        defines.emplace_back("COMPILEGS");
+        profile = "gs_4_0";
+    }
     else
     {
         entryPoint = "PS";
@@ -357,6 +375,12 @@ bool ShaderVariation::Compile()
             URHO3D_LOGDEBUG("Compiled vertex shader " + GetFullName());
         else if (type_ == CS)
             URHO3D_LOGDEBUG("Compiled compute shader " + GetFullName());
+        else if (type_ == HS)
+            URHO3D_LOGDEBUG("Compiled hull shader " + GetFullName());
+        else if (type_ == DS)
+            URHO3D_LOGDEBUG("Compiled domain shader " + GetFullName());
+        else if (type_ == GS)
+            URHO3D_LOGDEBUG("Compiled geometry shader " + GetFullName());
         else
             URHO3D_LOGDEBUG("Compiled pixel shader " + GetFullName());
 
@@ -477,7 +501,7 @@ void ShaderVariation::SaveByteCode(const ea::string& binaryShaderName)
     file->WriteFileID("USHD");
     file->WriteShort((unsigned short)type_);
     // Shader Model, CS/HS/DS use SM5
-    if (type_ == CS)
+    if (type_ == CS || type_ == HS || type_ == DS)
         file->WriteShort(5);
     else
         file->WriteShort(4);
