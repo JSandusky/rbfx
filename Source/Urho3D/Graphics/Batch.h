@@ -122,6 +122,12 @@ struct Batch
     ShaderVariation* vertexShader_{};
     /// Pixel shader.
     ShaderVariation* pixelShader_{};
+    /// Pixel shader.
+    ShaderVariation* hullShader_{};
+    /// Pixel shader.
+    ShaderVariation* domainShader_{};
+    /// Pixel shader.
+    ShaderVariation* geometryShader_{};
     /// %Geometry type.
     GeometryType geometryType_{};
     /// Mandatory per-instance shader parameters.
@@ -296,10 +302,22 @@ public:
     ea::string vsExtraDefines_;
     /// Pixel shader extra defines.
     ea::string psExtraDefines_;
+    /// Hull shader extra defines.
+    ea::string hsExtraDefines_;
+    /// Domain shader extra defines.
+    ea::string dsExtraDefines_;
+    /// Geometry shader extra defines.
+    ea::string gsExtraDefines_;
     /// Hash for vertex shader extra defines.
     StringHash vsExtraDefinesHash_;
     /// Hash for pixel shader extra defines.
     StringHash psExtraDefinesHash_;
+    /// Hash for hull shader extra defines.
+    StringHash hsExtraDefinesHash_;
+    /// Hash for domain shader extra defines.
+    StringHash dsExtraDefinesHash_;
+    /// Hash for geometry shader extra defines.
+    StringHash gsExtraDefinesHash_;
 };
 
 /// Queue for shadow map draw calls

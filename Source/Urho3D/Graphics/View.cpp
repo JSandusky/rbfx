@@ -1933,7 +1933,7 @@ void View::RenderQuad(RenderPathCommand& command)
         command.pixelShaderName_ = EMPTY_STRING;
 
     // Set shaders & shader parameters and textures
-    graphics_->SetShaders(vs, ps);
+    graphics_->SetShaders(vs, ps, nullptr, nullptr, nullptr);
 
     SetGlobalShaderParameters();
     SetCameraShaderParameters(camera_);
@@ -2211,7 +2211,7 @@ void View::BlitFramebuffer(Texture* source, RenderSurface* destination, bool dep
     graphics_->SetViewport(destRect);
 
     static const char* shaderName = "CopyFramebuffer";
-    graphics_->SetShaders(graphics_->GetShader(VS, shaderName), graphics_->GetShader(PS, shaderName));
+    graphics_->SetShaders(graphics_->GetShader(VS, shaderName), graphics_->GetShader(PS, shaderName), nullptr, nullptr, nullptr);
 
     SetGBufferShaderParameters(srcSize, srcRect);
 

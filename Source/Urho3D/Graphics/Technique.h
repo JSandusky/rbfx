@@ -145,40 +145,73 @@ public:
     /// Return whether requires desktop level hardware.
     bool IsDesktop() const { return isDesktop_; }
 
+#define PASS_SHADER_STAGE_FUNCTIONS(NAME, DATA) const ea::string& Get ## NAME ## Shader() const { return DATA.name_; } \
+    const ea::string& Get ## NAME ## ShaderDefines() const { return DATA.defines_; } \
+    const ea::string& Get ## NAME ## ShaderDefineExcludes() const { return DATA.defineExcludes_; } \
+    ea::vector<SharedPtr<ShaderVariation> >& Get ## NAME ## Shaders() { return DATA.shaders_; } \
+    ea::vector<SharedPtr<ShaderVariation> >& Get ## NAME ## Shaders(const StringHash& extraDefinesHash) { return GetShaders(DATA, extraDefinesHash); } \
+    ea::string GetEffective ## NAME ## ShaderDefines() const { return GetEffectiveShaderDefines(DATA); } \
+    void Set ## NAME ## ShaderDefines(const ea::string& defines) { DATA.defines_ = defines; ReleaseShaders(); } \
+    void Set ## NAME ## ShaderDefineExcludes(const ea::string& excludes) { DATA.defineExcludes_ = excludes; ReleaseShaders(); } \
+    void Set ## NAME ## Shader(const ea::string& name) { DATA.name_ = name; ReleaseShaders(); }
+
+    PASS_SHADER_STAGE_FUNCTIONS(Hull, hullShader_);
+    PASS_SHADER_STAGE_FUNCTIONS(Domain, domainShader_);
+    PASS_SHADER_STAGE_FUNCTIONS(Geometry, geometryShader_);
+
+#undef PASS_SHADE_STAGE_FUNCTIONS
+
     /// Return vertex shader name.
-    const ea::string& GetVertexShader() const { return vertexShaderName_; }
+    const ea::string& GetVertexShader() const { return vertexShader_.name_; }
 
     /// Return pixel shader name.
-    const ea::string& GetPixelShader() const { return pixelShaderName_; }
+    const ea::string& GetPixelShader() const { return pixelShader_.name_; }
 
     /// Return vertex shader defines.
-    const ea::string& GetVertexShaderDefines() const { return vertexShaderDefines_; }
+    const ea::string& GetVertexShaderDefines() const { return vertexShader_.defines_; }
 
     /// Return pixel shader defines.
-    const ea::string& GetPixelShaderDefines() const { return pixelShaderDefines_; }
+    const ea::string& GetPixelShaderDefines() const { return pixelShader_.defines_; }
 
     /// Return vertex shader define excludes.
-    const ea::string& GetVertexShaderDefineExcludes() const { return vertexShaderDefineExcludes_; }
+    const ea::string& GetVertexShaderDefineExcludes() const { return vertexShader_.defineExcludes_; }
 
     /// Return pixel shader define excludes.
-    const ea::string& GetPixelShaderDefineExcludes() const { return pixelShaderDefineExcludes_; }
+    const ea::string& GetPixelShaderDefineExcludes() const { return pixelShader_.defineExcludes_; }
 
     /// Return vertex shaders.
-    ea::vector<SharedPtr<ShaderVariation> >& GetVertexShaders() { return vertexShaders_; }
+    ea::vector<SharedPtr<ShaderVariation> >& GetVertexShaders() { return vertexShader_.shaders_; }
 
     /// Return pixel shaders.
-    ea::vector<SharedPtr<ShaderVariation> >& GetPixelShaders() { return pixelShaders_; }
+    ea::vector<SharedPtr<ShaderVariation> >& GetPixelShaders() { return pixelShader_.shaders_; }
 
     /// Return vertex shaders with extra defines from the renderpath.
-    ea::vector<SharedPtr<ShaderVariation> >& GetVertexShaders(const StringHash& extraDefinesHash);
+    ea::vector<SharedPtr<ShaderVariation> >& GetVertexShaders(const StringHash& extraDefinesHash) { return GetShaders(vertexShader_, extraDefinesHash); }
     /// Return pixel shaders with extra defines from the renderpath.
-    ea::vector<SharedPtr<ShaderVariation> >& GetPixelShaders(const StringHash& extraDefinesHash);
+    ea::vector<SharedPtr<ShaderVariation> >& GetPixelShaders(const StringHash& extraDefinesHash) { return GetShaders(pixelShader_, extraDefinesHash); }
     /// Return the effective vertex shader defines, accounting for excludes. Called internally by Renderer.
-    ea::string GetEffectiveVertexShaderDefines() const;
+    ea::string GetEffectiveVertexShaderDefines() const { return GetEffectiveShaderDefines(pixelShader_); }
     /// Return the effective pixel shader defines, accounting for excludes. Called internally by Renderer.
-    ea::string GetEffectivePixelShaderDefines() const;
+    ea::string GetEffectivePixelShaderDefines() const { return GetEffectiveShaderDefines(pixelShader_); }
 
 private:
+    struct ShaderData
+    {
+        /// Shader name.
+        ea::string name_;
+        /// Shader defines.
+        ea::string defines_;
+        /// Shader define excludes.
+        ea::string defineExcludes_;
+        /// Shaders.
+        ea::vector<SharedPtr<ShaderVariation>> shaders_;
+        /// Shaders with extra defines from the renderpath.
+        ea::unordered_map<StringHash, ea::vector<SharedPtr<ShaderVariation> > > extraShaders_;
+    };
+
+    ea::vector<SharedPtr<ShaderVariation> >& GetShaders(ShaderData&, const StringHash&);
+    ea::string GetEffectiveShaderDefines(const ShaderData&) const;
+
     /// Pass index.
     unsigned index_;
     /// Blend mode.
@@ -196,27 +229,13 @@ private:
     /// Alpha-to-coverage mode.
     bool alphaToCoverage_;
     /// Require desktop level hardware flag.
-    bool isDesktop_;
-    /// Vertex shader name.
-    ea::string vertexShaderName_;
-    /// Pixel shader name.
-    ea::string pixelShaderName_;
-    /// Vertex shader defines.
-    ea::string vertexShaderDefines_;
-    /// Pixel shader defines.
-    ea::string pixelShaderDefines_;
-    /// Vertex shader define excludes.
-    ea::string vertexShaderDefineExcludes_;
-    /// Pixel shader define excludes.
-    ea::string pixelShaderDefineExcludes_;
-    /// Vertex shaders.
-    ea::vector<SharedPtr<ShaderVariation> > vertexShaders_;
-    /// Pixel shaders.
-    ea::vector<SharedPtr<ShaderVariation> > pixelShaders_;
-    /// Vertex shaders with extra defines from the renderpath.
-    ea::unordered_map<StringHash, ea::vector<SharedPtr<ShaderVariation> > > extraVertexShaders_;
-    /// Pixel shaders with extra defines from the renderpath.
-    ea::unordered_map<StringHash, ea::vector<SharedPtr<ShaderVariation> > > extraPixelShaders_;
+    bool isDesktop_;    
+
+    ShaderData vertexShader_;
+    ShaderData pixelShader_;
+    ShaderData hullShader_;
+    ShaderData domainShader_;
+    ShaderData geometryShader_;
     /// Pass name.
     ea::string name_;
 };
@@ -286,7 +305,7 @@ public:
     ea::vector<Pass*> GetPasses() const;
 
     /// Return a clone with added shader compilation defines. Called internally by Material.
-    SharedPtr<Technique> CloneWithDefines(const ea::string& vsDefines, const ea::string& psDefines);
+    SharedPtr<Technique> CloneWithDefines(const ea::string& vsDefines, const ea::string& psDefines, const ea::string& hsDefines = ea::string(), const ea::string& dsDefines = ea::string(), const ea::string& gsDefines = ea::string());
 
     /// Return a pass type index by name. Allocate new if not used yet.
     static unsigned GetPassIndex(const ea::string& passName);

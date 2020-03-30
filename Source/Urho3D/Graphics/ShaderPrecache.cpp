@@ -116,6 +116,9 @@ void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)
     {
         ea::string vsDefines = shader.GetAttribute("vsdefines");
         ea::string psDefines = shader.GetAttribute("psdefines");
+        ea::string hsDefines = shader.GetAttribute("hsdefines");
+        ea::string dsDefines = shader.GetAttribute("dsdefines");
+        ea::string gsDefines = shader.GetAttribute("gsdefines");
 
         // Check for illegal variations on OpenGL ES and skip them
 #ifdef GL_ES_VERSION_2_0
@@ -132,8 +135,14 @@ void ShaderPrecache::LoadShaders(Graphics* graphics, Deserializer& source)
 
         ShaderVariation* vs = graphics->GetShader(VS, shader.GetAttribute("vs"), vsDefines);
         ShaderVariation* ps = graphics->GetShader(PS, shader.GetAttribute("ps"), psDefines);
+        ShaderVariation* hs = nullptr, *ds = nullptr, *gs = nullptr;
+
+        if (shader.HasAttribute("hs")) hs = graphics->GetShader(HS, shader.GetAttribute("hs"), hsDefines);
+        if (shader.HasAttribute("ds")) ds = graphics->GetShader(DS, shader.GetAttribute("ds"), hsDefines);
+        if (shader.HasAttribute("gs")) gs = graphics->GetShader(GS, shader.GetAttribute("gs"), hsDefines);
+
         // Set the shaders active to actually compile them
-        graphics->SetShaders(vs, ps);
+        graphics->SetShaders(vs, ps, hs, ds, gs);
 
         shader = shader.GetNext("shader");
     }

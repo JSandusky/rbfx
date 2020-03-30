@@ -179,9 +179,19 @@ void SetInstanceShaderParameters(Graphics* graphics, const InstanceShaderParamet
 
 void Batch::CalculateSortKey()
 {
+#if defined(URHO3D_DIRECT3D9) || defined(URHO3D_OPENGL)
     auto shaderID = (unsigned)(
         ((*((unsigned*)&vertexShader_) / sizeof(ShaderVariation)) + (*((unsigned*)&pixelShader_) / sizeof(ShaderVariation))) &
         0x7fffu);
+#else
+    auto shaderID = (unsigned)(
+        ((*((unsigned*)&vertexShader_) / sizeof(ShaderVariation)) +
+        (*((unsigned*)&pixelShader_) / sizeof(ShaderVariation)) +
+        (*((unsigned*)&hullShader_) / sizeof(ShaderVariation)) +
+        (*((unsigned*)&domainShader_) / sizeof(ShaderVariation)) +
+        (*((unsigned*)&geometryShader_) / sizeof(ShaderVariation))) &
+        0x7fffu);
+#endif
     if (!isBase_)
         shaderID |= 0x8000;
 
@@ -205,7 +215,7 @@ void Batch::Prepare(View* view, Camera* camera, bool setModelTransform, bool all
     Texture2D* shadowMap = lightQueue_ ? lightQueue_->shadowMap_ : nullptr;
 
     // Set shaders first. The available shader parameters and their register/uniform positions depend on the currently set shaders
-    graphics->SetShaders(vertexShader_, pixelShader_);
+    graphics->SetShaders(vertexShader_, pixelShader_, hullShader_, domainShader_, geometryShader_);
 
     // Set pass / material-specific renderstates
     if (pass_ && material_)

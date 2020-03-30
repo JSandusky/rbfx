@@ -190,6 +190,12 @@ public:
     void SetVertexShaderDefines(const ea::string& defines);
     /// Set additional pixel shader defines. Separate multiple defines with spaces. Setting defines at the material level causes technique(s) to be cloned as necessary.
     void SetPixelShaderDefines(const ea::string& defines);
+    /// Set additional defines for the hull stage.
+    void SetHullShaderDefines(const ea::string& defines);
+    /// Set additional defines for the domain stage.
+    void SetDomainShaderDefines(const ea::string& defines);
+    /// Set additional defines for the geometry stage.
+    void SetGeometryShaderDefines(const ea::string& defines);
     /// Set shader parameter.
     void SetShaderParameter(const ea::string& name, const Variant& value);
     /// Set shader parameter animation.
@@ -256,6 +262,12 @@ public:
     const ea::string& GetVertexShaderDefines() const { return vertexShaderDefines_; }
     /// Return additional pixel shader defines.
     const ea::string& GetPixelShaderDefines() const { return pixelShaderDefines_; }
+    /// Return additional hull shader defines.
+    const ea::string& GetHullShaderDefines() const { return hullShaderDefines_; }
+    /// Return additional domain shader defines.
+    const ea::string& GetDomainShaderDefines() const { return domainShaderDefines_; }
+    /// Return additional geometry shader defines.
+    const ea::string& GetGeometryShaderDefines() const { return geometryShaderDefines_; }
 
     /// Return shader parameter.
     const Variant& GetShaderParameter(const ea::string& name) const;
@@ -346,6 +358,12 @@ private:
     ea::string vertexShaderDefines_;
     /// Pixel shader defines.
     ea::string pixelShaderDefines_;
+    /// Hull shader defines.
+    ea::string hullShaderDefines_;
+    /// Domain shader defines.
+    ea::string domainShaderDefines_;
+    /// Geometry shader defines.
+    ea::string geometryShaderDefines_;
     /// Normal culling mode.
     CullMode cullMode_{};
     /// Culling mode for shadow rendering.
