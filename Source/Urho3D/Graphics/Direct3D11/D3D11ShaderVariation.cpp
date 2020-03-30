@@ -117,6 +117,18 @@ bool ShaderVariation::Create()
     {
         CREATE_SHADER(CS, ComputeShader, "compute shader")
     }
+    else if (type_ == HS)
+    {
+        CREATE_SHADER(DS, HullShader, "hull shader");
+    }
+    else if (type_ == DS)
+    {
+        CREATE_SHADER(DS, DomainShader, "domain shader");
+    }
+    else if (type_ == GS)
+    {
+        CREATE_SHADER(DS, GeometryShader, "geometry shader");
+    }
     else
     {
         CREATE_SHADER(PS, PixelShader, "pixel shader")
@@ -139,7 +151,22 @@ void ShaderVariation::Release()
         if (type_ == VS)
         {
             if (graphics_->GetVertexShader() == this)
-                graphics_->SetShaders(nullptr, nullptr);
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+        }
+        else if (type_ == HS)
+        {
+            if (graphics_->GetHullShader() == this)
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+        }
+        else if (type_ == DS)
+        {
+            if (graphics_->GetDomainShader() == this)
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
+        }
+        else if (type_ == GS)
+        {
+            if (graphics_->GetGeometryShader() == this)
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
         }
         else if (type_ == CS)
         {
@@ -148,7 +175,7 @@ void ShaderVariation::Release()
         else
         {
             if (graphics_->GetPixelShader() == this)
-                graphics_->SetShaders(nullptr, nullptr);
+                graphics_->SetShaders(nullptr, nullptr, nullptr, nullptr, nullptr);
         }
 
         URHO3D_SAFE_RELEASE(object_.ptr_);

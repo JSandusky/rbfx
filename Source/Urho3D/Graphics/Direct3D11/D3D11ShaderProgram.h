@@ -26,6 +26,7 @@
 
 #include "../../Graphics/ConstantBuffer.h"
 #include "../../Graphics/Graphics.h"
+#include "../../IO/Log.h"
 #include "../../Graphics/ShaderVariation.h"
 
 namespace Urho3D
@@ -36,7 +37,7 @@ class URHO3D_API ShaderProgram : public RefCounted
 {
 public:
     /// Construct.
-    ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader)
+    ShaderProgram(Graphics* graphics, ShaderVariation* vertexShader, ShaderVariation* pixelShader, ShaderVariation* hullShader, ShaderVariation* domainShader, ShaderVariation* geometryShader)
     {
         // Create needed constant buffers
         const unsigned* vsBufferSizes = vertexShader->GetConstantBufferSizes();
@@ -67,6 +68,37 @@ public:
             parameters_[i->first] = i->second;
             parameters_[i->first].bufferPtr_ = psConstantBuffers_[i->second.buffer_].Get();
         }
+
+        // The other stages are all expected to use the VS buffers.
+        static auto vsFiller = [](Graphics* graphics, ea::unordered_map<StringHash, ShaderParameter>& vsParams, SharedPtr<ConstantBuffer>* vsConstantBuffers, ShaderVariation* inQuestion, const char* stageName) {
+            if (inQuestion)
+            {
+                const unsigned* sizes = inQuestion->GetConstantBufferSizes();
+                for (unsigned i = 0; i < MAX_SHADER_PARAMETER_GROUPS; ++i)
+                {
+                    if (vsConstantBuffers[i] && vsConstantBuffers[i]->GetSize() != sizes[i])
+                    {
+                        URHO3D_LOGERROR("Constant buffer size mismatch between VS and {}, VS has {} while {} has {}", stageName, vsConstantBuffers[i]->GetSize(), stageName, sizes[i]);
+                    }
+                    else if (vsConstantBuffers[i].Null())
+                        vsConstantBuffers[i] = graphics->GetOrCreateConstantBuffer(VS, i, sizes[i]);
+                }
+
+                const auto& qParams = inQuestion->GetParameters();
+                for (auto i = qParams.begin(); i != qParams.end(); ++i)
+                {
+                    if (!vsParams.contains(i->first))
+                    {
+                        vsParams[i->first] = i->second;
+                        vsParams[i->first].bufferPtr_ = vsConstantBuffers[i->second.buffer_].Get();
+                    }
+                }
+            }
+        };
+
+        vsFiller(graphics, parameters_, vsConstantBuffers_, hullShader, "HS");
+        vsFiller(graphics, parameters_, vsConstantBuffers_, domainShader, "DS");
+        vsFiller(graphics, parameters_, vsConstantBuffers_, geometryShader, "GS");
 
         // Optimize shader parameter lookup by rehashing to next power of two
         parameters_.rehash(Max(2u, NextPowerOfTwo(parameters_.size())));

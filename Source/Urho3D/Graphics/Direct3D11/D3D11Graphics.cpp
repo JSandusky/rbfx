@@ -650,7 +650,7 @@ void Graphics::Clear(ClearTargetFlags flags, const Color& color, float depth, un
         SetFillMode(FILL_SOLID);
         SetScissorTest(false);
         SetStencilTest(flags & CLEAR_STENCIL, CMP_ALWAYS, OP_REF, OP_KEEP, OP_KEEP, stencil);
-        SetShaders(GetShader(VS, "ClearFramebuffer"), GetShader(PS, "ClearFramebuffer"));
+        SetShaders(GetShader(VS, "ClearFramebuffer"), GetShader(PS, "ClearFramebuffer"), nullptr, nullptr, nullptr);
         SetShaderParameter(VSP_MODEL, model);
         SetShaderParameter(VSP_VIEWPROJ, projection);
         SetShaderParameter(PSP_MATDIFFCOLOR, color);
@@ -782,6 +782,9 @@ void Graphics::Draw(PrimitiveType type, unsigned vertexStart, unsigned vertexCou
         type = POINT_LIST;
 
     GetD3DPrimitiveType(vertexCount, type, primitiveCount, d3dPrimitiveType);
+    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
     if (d3dPrimitiveType != primitiveType_)
     {
         impl_->deviceContext_->IASetPrimitiveTopology(d3dPrimitiveType);
@@ -807,6 +810,9 @@ void Graphics::Draw(PrimitiveType type, unsigned indexStart, unsigned indexCount
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
+    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
     if (d3dPrimitiveType != primitiveType_)
     {
         impl_->deviceContext_->IASetPrimitiveTopology(d3dPrimitiveType);
@@ -832,6 +838,9 @@ void Graphics::Draw(PrimitiveType type, unsigned indexStart, unsigned indexCount
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
+    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
     if (d3dPrimitiveType != primitiveType_)
     {
         impl_->deviceContext_->IASetPrimitiveTopology(d3dPrimitiveType);
@@ -858,6 +867,9 @@ void Graphics::DrawInstanced(PrimitiveType type, unsigned indexStart, unsigned i
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
+    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
     if (d3dPrimitiveType != primitiveType_)
     {
         impl_->deviceContext_->IASetPrimitiveTopology(d3dPrimitiveType);
@@ -884,6 +896,9 @@ void Graphics::DrawInstanced(PrimitiveType type, unsigned indexStart, unsigned i
         type = POINT_LIST;
 
     GetD3DPrimitiveType(indexCount, type, primitiveCount, d3dPrimitiveType);
+    if (hullShader_ && d3dPrimitiveType == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST)
+        d3dPrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+
     if (d3dPrimitiveType != primitiveType_)
     {
         impl_->deviceContext_->IASetPrimitiveTopology(d3dPrimitiveType);
@@ -984,13 +999,15 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     }
 }
 
-void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
+void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariation* hs, ShaderVariation* ds, ShaderVariation* gs)
 {
     // Switch to the clip plane variations if necessary
     if (useClipPlane_)
     {
         if (vs)
             vs = vs->GetOwner()->GetVariation(VS, vs->GetDefinesClipPlane());
+        if (gs) // hull/domain don't make as much sense to check against the clip-plane (impractical)
+            gs = gs->GetOwner()->GetVariation(GS, gs->GetDefinesClipPlane());
         if (ps)
             ps = ps->GetOwner()->GetVariation(PS, ps->GetDefinesClipPlane());
     }
@@ -998,53 +1015,28 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     if (vs == vertexShader_ && ps == pixelShader_)
         return;
 
-    if (vs != vertexShader_)
-    {
-        // Create the shader now if not yet created. If already attempted, do not retry
-        if (vs && !vs->GetGPUObject())
-        {
-            if (vs->GetCompilerOutput().empty())
-            {
-                URHO3D_PROFILE("CompileVertexShader");
+// Nasty macro, but it takes care of all of the typing hell
+#define SET_SHADER(CAPS_STAGE, STAGE, VAR, D3DTYPE, STAGENAME) if (STAGE != VAR) { \
+        if (STAGE && !STAGE->GetGPUObject()) { \
+            if (STAGE->GetCompilerOutput().empty()) { \
+                URHO3D_PROFILE("Compile" #D3DTYPE); \
+                bool success = STAGE->Create(); \
+                if (!success) { \
+                    URHO3D_LOGERROR("Failed to compile " STAGENAME + STAGE->GetFullName() + ":\n" + STAGE->GetCompilerOutput()); \
+                    STAGE = nullptr; \
+                } \
+            } else STAGE = nullptr; \
+        } \
+        impl_->deviceContext_-> CAPS_STAGE ## SetShader((ID3D11 ## D3DTYPE *)(STAGE ? STAGE->GetGPUObject() : nullptr), nullptr, 0); \
+        VAR = STAGE; }
 
-                bool success = vs->Create();
-                if (!success)
-                {
-                    URHO3D_LOGERROR("Failed to compile vertex shader " + vs->GetFullName() + ":\n" + vs->GetCompilerOutput());
-                    vs = nullptr;
-                }
-            }
-            else
-                vs = nullptr;
-        }
+    SET_SHADER(VS, vs, vertexShader_, VertexShader, "vertex");
+    SET_SHADER(HS, hs, hullShader_, HullShader, "hull");
+    SET_SHADER(DS, ds, domainShader_, DomainShader, "domain");
+    SET_SHADER(GS, gs, geometryShader_, GeometryShader, "geometry");
+    SET_SHADER(PS, ps, pixelShader_, PixelShader, "pixel");    
 
-        impl_->deviceContext_->VSSetShader((ID3D11VertexShader*)(vs ? vs->GetGPUObject() : nullptr), nullptr, 0);
-        vertexShader_ = vs;
-        impl_->vertexDeclarationDirty_ = true;
-    }
-
-    if (ps != pixelShader_)
-    {
-        if (ps && !ps->GetGPUObject())
-        {
-            if (ps->GetCompilerOutput().empty())
-            {
-                URHO3D_PROFILE("CompilePixelShader");
-
-                bool success = ps->Create();
-                if (!success)
-                {
-                    URHO3D_LOGERROR("Failed to compile pixel shader " + ps->GetFullName() + ":\n" + ps->GetCompilerOutput());
-                    ps = nullptr;
-                }
-            }
-            else
-                ps = nullptr;
-        }
-
-        impl_->deviceContext_->PSSetShader((ID3D11PixelShader*)(ps ? ps->GetGPUObject() : nullptr), nullptr, 0);
-        pixelShader_ = ps;
-    }
+#undef SET_SHADER
 
     // Update current shader parameters & constant buffers
     if (vertexShader_ && pixelShader_)
@@ -1055,7 +1047,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
             impl_->shaderProgram_ = i->second.Get();
         else
         {
-            ShaderProgram* newProgram = impl_->shaderPrograms_[key] = new ShaderProgram(this, vertexShader_, pixelShader_);
+            ShaderProgram* newProgram = impl_->shaderPrograms_[key] = new ShaderProgram(this, vertexShader_, pixelShader_, hullShader_, domainShader_, geometryShader_);
             impl_->shaderProgram_ = newProgram;
         }
 
@@ -1087,6 +1079,14 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
             impl_->deviceContext_->VSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
         if (psBuffersChanged)
             impl_->deviceContext_->PSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[PS][0]);
+
+        // The other render-stages just use what the VS has. It's verified that sizes are compatible during ShaderProgram construction and anything missing in VS will be pushed into it.
+        if (hullShader_)
+            impl_->deviceContext_->HSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
+        if (domainShader_)
+            impl_->deviceContext_->DSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
+        if (geometryShader_)
+            impl_->deviceContext_->GSSetConstantBuffers(0, MAX_SHADER_PARAMETER_GROUPS, &impl_->constantBuffers_[VS][0]);
     }
     else
         impl_->shaderProgram_ = nullptr;
@@ -1250,7 +1250,15 @@ bool Graphics::HasShaderParameter(StringHash param)
 
 bool Graphics::HasTextureUnit(TextureUnit unit)
 {
-    return (vertexShader_ && vertexShader_->HasTextureUnit(unit)) || (pixelShader_ && pixelShader_->HasTextureUnit(unit));
+#define CHECK_TEXTURE_UNIT(SHADER) (SHADER && SHADER->HasTextureUnit(unit))
+
+    return CHECK_TEXTURE_UNIT(vertexShader_) ||
+        CHECK_TEXTURE_UNIT(hullShader_) ||
+        CHECK_TEXTURE_UNIT(domainShader_) ||
+        CHECK_TEXTURE_UNIT(geometryShader_) ||
+        CHECK_TEXTURE_UNIT(pixelShader_);
+
+#undef CHECK_TEXTURE_UNIT
 }
 
 void Graphics::ClearParameterSource(ShaderParameterGroup group)
@@ -1895,7 +1903,7 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* variation)
             ++i;
     }
 
-    if (vertexShader_ == variation || pixelShader_ == variation)
+    if (vertexShader_ == variation || pixelShader_ == variation || hullShader_ == variation || domainShader_ == variation || geometryShader_ == variation)
         impl_->shaderProgram_ = nullptr;
 }
 
