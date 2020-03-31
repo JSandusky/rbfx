@@ -150,6 +150,7 @@ void SoundSource::RegisterObject(Context* context)
     URHO3D_ATTRIBUTE("Attenuation", float, attenuation_, 1.0f, AM_DEFAULT);
     URHO3D_ATTRIBUTE("Panning", float, panning_, 0.0f, AM_DEFAULT);
     URHO3D_ATTRIBUTE("Reach", float, reach_, 0.0f, AM_DEFAULT);
+    URHO3D_ATTRIBUTE("Low Frequency Effect", bool, lowFrequency_, false, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Is Playing", IsPlaying, SetPlayingAttr, bool, false, AM_DEFAULT);
     URHO3D_ENUM_ATTRIBUTE("Autoremove Mode", autoRemove_, autoRemoveModeNames, REMOVE_DISABLED, AM_DEFAULT);
     URHO3D_ACCESSOR_ATTRIBUTE("Play Position", GetPositionAttr, SetPositionAttr, int, 0, AM_FILE);
@@ -316,6 +317,18 @@ void SoundSource::SetPanning(float panning)
     MarkNetworkUpdate();
 }
 
+void SoundSource::SetReach(float reach)
+{
+    reach_ = Clamp(reach, -1.0f, 1.0f);
+    MarkNetworkUpdate();
+}
+
+void SoundSource::SetLowFrequency(bool state)
+{
+    lowFrequency_ = state;
+    MarkNetworkUpdate();
+}
+
 void SoundSource::SetAutoRemoveMode(AutoRemoveMode mode)
 {
     autoRemove_ = mode;
@@ -430,7 +443,7 @@ void SoundSource::Mix(int dest[], unsigned samples, int mixRate, SpeakerMode mod
                 break;
             case SPK_SURROUND_5_1:
                 if (lowFrequency_)
-                    MixMonoToMonoIP(sound, dest, samples, mixRate, SOUND_SOURCE_LOW_FREQ_CHANNEL[mode]);
+                    MixMonoToMonoIP(sound, dest, samples, mixRate, SOUND_SOURCE_LOW_FREQ_CHANNEL[mode], 6);
                 else
                     MixMonoToSurroundIP(sound, dest, samples, mixRate, mode);
                 break;
@@ -451,7 +464,7 @@ void SoundSource::Mix(int dest[], unsigned samples, int mixRate, SpeakerMode mod
                 break;
             case SPK_SURROUND_5_1:
                 if (lowFrequency_)
-                    MixMonoToMono(sound, dest, samples, mixRate, SOUND_SOURCE_LOW_FREQ_CHANNEL[mode]);
+                    MixMonoToMono(sound, dest, samples, mixRate, SOUND_SOURCE_LOW_FREQ_CHANNEL[mode], 6);
                 else
                     MixMonoToSurround(sound, dest, samples, mixRate, mode);
                 break;
@@ -641,7 +654,7 @@ void SoundSource::SetPlayPositionLockless(signed char* pos)
     timePosition_ = ((float)(int)(size_t)(pos - sound_->GetStart())) / (sound_->GetSampleSize() * sound_->GetFrequency());
 }
 
-void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int mixRate, int sampleStep)
+void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int mixRate, int channel, int channelCt)
 {
     float totalGain = masterGain_ * attenuation_ * gain_;
     int vol = (int)(256.0f * totalGain + 0.5f);
@@ -666,9 +679,9 @@ void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int m
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + (*pos * vol) / 256;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_LOOPED();
             }
             position_ = (signed char*)pos;
@@ -677,9 +690,9 @@ void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int m
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + (*pos * vol) / 256;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_ONESHOT();
             }
             position_ = (signed char*)pos;
@@ -695,9 +708,9 @@ void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int m
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + *pos * vol;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_LOOPED();
             }
             position_ = pos;
@@ -706,9 +719,9 @@ void SoundSource::MixMonoToMono(Sound* sound, int* dest, unsigned samples, int m
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + *pos * vol;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_ONESHOT();
             }
             position_ = pos;
@@ -799,7 +812,7 @@ void SoundSource::MixMonoToStereo(Sound* sound, int dest[], unsigned samples, in
     fractPosition_ = fractPos;
 }
 
-void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int mixRate, int sampleStep)
+void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int mixRate, int channel, int channelCt)
 {
     float totalGain = masterGain_ * attenuation_ * gain_;
     int vol = (int)(256.0f * totalGain + 0.5f);
@@ -824,9 +837,9 @@ void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + (GET_IP_SAMPLE() * vol) / 256;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_LOOPED();
             }
             position_ = (signed char*)pos;
@@ -835,9 +848,9 @@ void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + (GET_IP_SAMPLE() * vol) / 256;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_ONESHOT();
             }
             position_ = (signed char*)pos;
@@ -853,9 +866,9 @@ void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + GET_IP_SAMPLE() * vol;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_LOOPED();
             }
             position_ = pos;
@@ -864,9 +877,9 @@ void SoundSource::MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int
         {
             while (samples--)
             {
-                dest += sampleStep;
+                dest += channel;
                 *dest = *dest + GET_IP_SAMPLE() * vol;
-                ++dest;
+                dest += channelCt - channel;
                 INC_POS_ONESHOT();
             }
             position_ = pos;
@@ -1705,7 +1718,9 @@ void SoundSource::MixStereoToMultiIP(Sound* sound, int* dest, unsigned samples, 
                 {
                     if (speakers == SPK_SURROUND_5_1)
                     {
+                        *dest = *dest + (((GET_IP_SAMPLE_LEFT() * vol) + GET_IP_SAMPLE_RIGHT() * vol) / 256) / 2;
                         ++dest; // FC
+                        *dest = *dest + (((GET_IP_SAMPLE_LEFT() * vol) + GET_IP_SAMPLE_RIGHT() * vol) / 256) / 2;
                         ++dest; // LFE
                     }
 

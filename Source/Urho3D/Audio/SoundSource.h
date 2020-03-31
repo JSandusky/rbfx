@@ -72,6 +72,10 @@ public:
     void SetAttenuation(float attenuation);
     /// Set stereo panning. -1.0 is full left and 1.0 is full right.
     void SetPanning(float panning);
+    /// Set surround sound forward/back reach. -1.0 is rear, 1.0 is front.
+    void SetReach(float reach);
+    /// Specify that this source should write directly to the LFE channel if available, otherwise the sound will be bypassed.
+    void SetLowFrequency(bool state);
     /// Set to remove either the sound source component or its owner node from the scene automatically on sound playback completion. Disabled by default.
     void SetAutoRemoveMode(AutoRemoveMode mode);
     /// Set new playback position.
@@ -100,6 +104,12 @@ public:
 
     /// Return stereo panning.
     float GetPanning() const { return panning_; }
+
+    /// Return surround sound reach.
+    float GetReach() const { return reach_; }
+
+    /// Return whether this is a LFE output.
+    bool IsLowFrequency() const { return lowFrequency_; }
 
     /// Return automatic removal mode on sound playback completion.
     AutoRemoveMode GetAutoRemoveMode() const { return autoRemove_; }
@@ -161,11 +171,11 @@ private:
     /// Set new playback position without locking the audio mutex. Called internally.
     void SetPlayPositionLockless(signed char* pos);
     /// Mix mono sample to mono buffer. Optionally into a target channel, such as the LFE or Front-center.
-    void MixMonoToMono(Sound* sound, int* dest, unsigned samples, int mixRate, int channelOffset = 0);
+    void MixMonoToMono(Sound* sound, int* dest, unsigned samples, int mixRate, int channel = 0, int channelCt = 1);
     /// Mix mono sample to stereo buffer.
     void MixMonoToStereo(Sound* sound, int dest[], unsigned samples, int mixRate);
     /// Mix mono sample to mono buffer interpolated. Optionally into a target channel, such as the LFE or front-center.
-    void MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int mixRate, int channelOffset = 0);
+    void MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int mixRate, int channel = 0, int channelCt = 1);
     /// Mix mono sample to stereo buffer interpolated.
     void MixMonoToStereoIP(Sound* sound, int dest[], unsigned samples, int mixRate);
     /// Mix stereo sample to mono buffer.
