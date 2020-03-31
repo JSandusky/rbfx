@@ -45,7 +45,7 @@ const ea::vector<ea::string> wordExtensions_{".doc", ".docx", ".odt"};
 const ea::vector<ea::string> codeExtensions_{".c", ".cpp", ".h", ".hpp", ".hxx", ".py", ".py3", ".js", ".cs"};
 const ea::vector<ea::string> imagesExtensions_{".png", ".jpg", ".jpeg", ".gif", ".ttf", ".dds", ".psd"};
 const ea::vector<ea::string> textExtensions_{".xml", ".json", ".txt", ".yml", ".scene", ".material", ".ui", ".uistyle", ".node", ".particle"};
-const ea::vector<ea::string> audioExtensions_{".waw", ".ogg", ".mp3"};
+const ea::vector<ea::string> audioExtensions_{".wav", ".ogg", ".mp3"};
 
 FileType GetFileType(const ea::string& fileName)
 {
