@@ -34,4 +34,13 @@ static const ea::string SOUND_AMBIENT = "Ambient";
 static const ea::string SOUND_VOICE = "Voice";
 static const ea::string SOUND_MUSIC = "Music";
 
+enum SpeakerMode
+{
+    SPK_AUTO,
+    SPK_MONO,
+    SPK_STEREO,
+    SPK_QUADROPHONIC,
+    SPK_SURROUND_5_1,
+};
+
 }

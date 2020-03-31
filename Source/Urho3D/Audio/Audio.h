@@ -49,7 +49,7 @@ public:
     ~Audio() override;
 
     /// Initialize sound output with specified buffer length and output mode.
-    bool SetMode(int bufferLengthMSec, int mixRate, bool stereo, bool interpolation = true);
+    bool SetMode(int bufferLengthMSec, int mixRate, SpeakerMode speakerMode, bool interpolation = true);
     /// Run update on sound sources. Not required for continued playback, but frees unused sound sources & sounds and updates 3D positions.
     void Update(float timeStep);
     /// Restart sound output.
@@ -79,7 +79,11 @@ public:
     bool GetInterpolation() const { return interpolation_; }
 
     /// Return whether output is stereo.
-    bool IsStereo() const { return stereo_; }
+    bool IsStereo() const { return speakerMode_ == SPK_STEREO; }
+
+    SpeakerMode GetMode() const { return speakerMode_; }
+
+    bool IsSurround() const { return speakerMode_ == SPK_SURROUND_5_1; }
 
     /// Return whether audio is being output.
     bool IsPlaying() const { return playing_; }
@@ -139,7 +143,7 @@ private:
     /// Mixing interpolation flag.
     bool interpolation_{};
     /// Stereo flag.
-    bool stereo_{};
+    SpeakerMode speakerMode_{};
     /// Playing flag.
     bool playing_{};
     /// Master gain by sound source type.
