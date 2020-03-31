@@ -110,7 +110,7 @@ public:
     /// Update the sound source. Perform subclass specific operations. Called by Audio.
     virtual void Update(float timeStep);
     /// Mix sound source output to a 32-bit clipping buffer. Called by Audio.
-    void Mix(int dest[], unsigned samples, int mixRate, bool stereo, bool interpolation);
+    void Mix(int dest[], unsigned samples, int mixRate, SpeakerMode mode, bool interpolation);
     /// Update the effective master gain. Called internally and by Audio when the master gain changes.
     void UpdateMasterGain();
 
@@ -140,12 +140,16 @@ protected:
     float attenuation_;
     /// Stereo panning.
     float panning_;
+    /// Surround sound forward/back reach.
+    float reach_{0.0f};
     /// Effective master gain.
     float masterGain_{};
     /// Whether finished event should be sent on playback stop.
     bool sendFinishedEvent_;
     /// Automatic removal mode.
     AutoRemoveMode autoRemove_;
+    /// Whether this sound-source should be mixed directly into LFE channel.
+    bool lowFrequency_{};
 
 private:
     /// Play a sound without locking the audio mutex. Called internally.
@@ -156,12 +160,12 @@ private:
     void StopLockless();
     /// Set new playback position without locking the audio mutex. Called internally.
     void SetPlayPositionLockless(signed char* pos);
-    /// Mix mono sample to mono buffer.
-    void MixMonoToMono(Sound* sound, int dest[], unsigned samples, int mixRate);
+    /// Mix mono sample to mono buffer. Optionally into a target channel, such as the LFE or Front-center.
+    void MixMonoToMono(Sound* sound, int* dest, unsigned samples, int mixRate, int channelOffset = 0);
     /// Mix mono sample to stereo buffer.
     void MixMonoToStereo(Sound* sound, int dest[], unsigned samples, int mixRate);
-    /// Mix mono sample to mono buffer interpolated.
-    void MixMonoToMonoIP(Sound* sound, int dest[], unsigned samples, int mixRate);
+    /// Mix mono sample to mono buffer interpolated. Optionally into a target channel, such as the LFE or front-center.
+    void MixMonoToMonoIP(Sound* sound, int* dest, unsigned samples, int mixRate, int channelOffset = 0);
     /// Mix mono sample to stereo buffer interpolated.
     void MixMonoToStereoIP(Sound* sound, int dest[], unsigned samples, int mixRate);
     /// Mix stereo sample to mono buffer.
@@ -172,6 +176,16 @@ private:
     void MixStereoToMonoIP(Sound* sound, int dest[], unsigned samples, int mixRate);
     /// Mix stereo sample to stereo buffer interpolated.
     void MixStereoToStereoIP(Sound* sound, int dest[], unsigned samples, int mixRate);
+
+    /// Mix a mono track to surround buffer.
+    void MixMonoToSurround(Sound* sound, int* dest, unsigned samples, int mixRate, SpeakerMode speakers);
+    /// Mix a mono track into a surround buffer.
+    void MixMonoToSurroundIP(Sound* sound, int* dest, unsigned samples, int mixRate, SpeakerMode speakers);
+    /// Mix stereo sample into multichannel. Front-center and LFE are ommitted.
+    void MixStereoToMulti(Sound* sound, int* dest, unsigned samples, int mixRate, SpeakerMode speakers);
+    /// Mix stereo sample into multichannel. Front-center and LFE are ommitted.
+    void MixStereoToMultiIP(Sound* sound, int* dest, unsigned samples, int mixRate, SpeakerMode speakers);
+
     /// Advance playback pointer without producing audible output.
     void MixZeroVolume(Sound* sound, unsigned samples, int mixRate);
     /// Advance playback pointer to simulate audio playback in headless mode.
