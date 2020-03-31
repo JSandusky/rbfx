@@ -1022,8 +1022,9 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps, ShaderVariat
     if (vs == vertexShader_ && ps == pixelShader_ && geometryShader_ == gs && hullShader_ == hs && domainShader_ == ds)
         return;
 
-    // whenever tessellation status would change it's necessary to call IASetInputLayout.
-    if (vs != vertexShader_ && hs != hullShader_)
+    // Whenever VS changes it's possible that the vertex-layout -> shader interface is no longer valid and a new input-layout required.
+    // Previously this just relied on the luck that most shaders were same-y, more-so within the context of a single pass.
+    if (vs != vertexShader_)
         impl_->vertexDeclarationDirty_ = true;
 
 // Nasty macro, but it takes care of all of the typing hell
@@ -2524,10 +2525,6 @@ void Graphics::PrepareDraw()
         {
             /// \todo Using a 64bit total hash for vertex shader and vertex buffer elements hash may not guarantee uniqueness
             newVertexDeclarationHash += vertexShader_->GetElementHash();
-            if (hullShader_)
-                CombineHash(newVertexDeclarationHash, MakeHash(hullShader_));
-            if (domainShader_)
-                CombineHash(newVertexDeclarationHash, MakeHash(domainShader_));
 
             if (newVertexDeclarationHash != vertexDeclarationHash_)
             {
