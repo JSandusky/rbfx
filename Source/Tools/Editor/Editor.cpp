@@ -56,23 +56,45 @@
 #include "Tabs/ConsoleTab.h"
 #include "Tabs/ResourceTab.h"
 #include "Tabs/PreviewTab.h"
+#include "Pipeline/Asset.h"
 #include "Pipeline/Commands/CookScene.h"
 #include "Pipeline/Commands/BuildAssets.h"
 #include "Pipeline/Importers/ModelImporter.h"
 #include "Pipeline/Importers/SceneConverter.h"
 #include "Pipeline/Importers/TextureImporter.h"
-#include "Plugins/ModulePlugin.h"
+#if URHO3D_PLUGINS
+#   include "Plugins/PluginManager.h"
+#   include "Plugins/ModulePlugin.h"
+#endif
 #include "Plugins/ScriptBundlePlugin.h"
 #include "Inspector/AssetInspector.h"
 #include "Inspector/MaterialInspector.h"
 #include "Inspector/ModelInspector.h"
 #include "Inspector/NodeInspector.h"
+#include "Inspector/ComponentInspector.h"
 #include "Inspector/SerializableInspector.h"
 #include "Inspector/SoundInspector.h"
+#include "Inspector/UIElementInspector.h"
 #include "Tabs/ProfilerTab.h"
-// #undef URHO3D_SYSTEMUI_VIEWPORTS
+#include "EditorUndo.h"
+
 namespace Urho3D
 {
+
+namespace
+{
+
+const auto&& DEFAULT_TAB_TYPES = {
+    InspectorTab::GetTypeStatic(),
+    HierarchyTab::GetTypeStatic(),
+    ResourceTab::GetTypeStatic(),
+    ConsoleTab::GetTypeStatic(),
+    PreviewTab::GetTypeStatic(),
+    SceneTab::GetTypeStatic(),
+    ProfilerTab::GetTypeStatic()
+};
+
+}
 
 Editor::Editor(Context* context)
     : Application(context)
@@ -171,12 +193,16 @@ void Editor::Setup()
     context_->RegisterFactory<PreviewTab>();
     context_->RegisterFactory<ProfilerTab>();
 
-    // Inspectors
-    RegisterProvider<Asset, AssetInspector>();
-    RegisterProvider<Model, ModelInspector>();
-    RegisterProvider<Material, MaterialInspector>();
-    RegisterProvider<Sound, SoundInspector>();
-    RegisterProvider<Node, NodeInspector>();
+    // Inspectors.
+    inspectors_.push_back(SharedPtr(new AssetInspector(context_)));
+    inspectors_.push_back(SharedPtr(new ModelInspector(context_)));
+    inspectors_.push_back(SharedPtr(new MaterialInspector(context_)));
+    inspectors_.push_back(SharedPtr(new SoundInspector(context_)));
+    inspectors_.push_back(SharedPtr(new NodeInspector(context_)));
+    inspectors_.push_back(SharedPtr(new ComponentInspector(context_)));
+    inspectors_.push_back(SharedPtr(new UIElementInspector(context_)));
+    // FIXME: If user registers their own inspector later then SerializableInspector would no longer come in last.
+    inspectors_.push_back(SharedPtr(new SerializableInspector(context_)));
 
 #if URHO3D_PLUGINS
     RegisterPluginsLibrary(context_);
@@ -201,8 +227,6 @@ void Editor::Setup()
 
     keyBindings_.Bind(ActionType::OpenProject, this, &Editor::OpenOrCreateProject);
     keyBindings_.Bind(ActionType::Exit, this, &Editor::OnExitHotkeyPressed);
-    keyBindings_.Bind(ActionType::UndoAction, this, &Editor::OnUndo);
-    keyBindings_.Bind(ActionType::RedoAction, this, &Editor::OnRedo);
 }
 
 void Editor::Start()
@@ -241,6 +265,7 @@ void Editor::Start()
     SubscribeToEvent(E_EXITREQUESTED, [this](StringHash, VariantMap&) { OnExitRequested(); });
     SubscribeToEvent(E_EDITORPROJECTSERIALIZE, [this](StringHash, VariantMap&) { UpdateWindowTitle(); });
     SubscribeToEvent(E_CONSOLEURICLICK, [this](StringHash, VariantMap& args) { OnConsoleUriClick(args); });
+    SubscribeToEvent(E_EDITORSELECTIONCHANGED, URHO3D_HANDLER(Editor, OnSelectionChanged));
     SetupSystemUI();
     if (!defaultProjectPath_.empty())
     {
@@ -610,14 +635,16 @@ void Editor::OnExitHotkeyPressed()
 
 void Editor::CreateDefaultTabs()
 {
+    for (StringHash type : DEFAULT_TAB_TYPES)
+        context_->RemoveSubsystem(type);
     tabs_.clear();
-    tabs_.emplace_back(new InspectorTab(context_));
-    tabs_.emplace_back(new HierarchyTab(context_));
-    tabs_.emplace_back(new ResourceTab(context_));
-    tabs_.emplace_back(new ConsoleTab(context_));
-    tabs_.emplace_back(new PreviewTab(context_));
-    tabs_.emplace_back(new SceneTab(context_));
-    tabs_.emplace_back(new ProfilerTab(context_));
+
+    for (StringHash type : DEFAULT_TAB_TYPES)
+    {
+        SharedPtr<Tab> tab;
+        tab.StaticCast(context_->CreateObject(type));
+        tabs_.push_back(tab);
+    }
 }
 
 void Editor::LoadDefaultLayout()
@@ -664,34 +691,10 @@ void Editor::CloseProject()
 {
     SendEvent(E_EDITORPROJECTCLOSING);
     context_->RemoveSubsystem<Project>();
+    for (StringHash type : DEFAULT_TAB_TYPES)
+        context_->RemoveSubsystem(type);
     tabs_.clear();
     project_.Reset();
-}
-
-void Editor::OnUndo()
-{
-    if (ui::IsAnyItemActive())
-        return;
-
-    VariantMap args;
-    args[Undo::P_TIME] = 0;
-    SendEvent(E_UNDO, args);
-    auto it = args.find(Undo::P_MANAGER);
-    if (it != args.end())
-        ((Undo::Manager*)it->second.GetPtr())->Undo();
-}
-
-void Editor::OnRedo()
-{
-    if (ui::IsAnyItemActive())
-        return;
-
-    VariantMap args;
-    args[Undo::P_TIME] = M_MAX_UNSIGNED;
-    SendEvent(E_REDO, args);
-    auto it = args.find(Undo::P_MANAGER);
-    if (it != args.end())
-        ((Undo::Manager*)it->second.GetPtr())->Redo();
 }
 
 Tab* Editor::GetTabByName(const ea::string& uniqueName)
@@ -903,45 +906,25 @@ void Editor::OnConsoleUriClick(VariantMap& args)
     }
 }
 
-void Editor::ClearInspector()
+void Editor::OnSelectionChanged(StringHash, VariantMap& args)
 {
-    inspected_.clear();
-    GetTab<InspectorTab>()->ClearProviders();
-}
-
-void Editor::Inspect(Object* object)
-{
-    if (object == nullptr)
+    using namespace EditorSelectionChanged;
+    auto tab = static_cast<Tab*>(args[P_TAB].GetPtr());
+    auto undo = GetSubsystem<UndoStack>();
+    ByteVector newSelection = tab->SerializeSelection();
+    if (tab == selectionTab_)
     {
-        URHO3D_LOGERROR("Editor can not inspect a null object.");
-        return;
+        if (newSelection == selectionBuffer_)
+            return;
     }
-    bool inspected = false;
-    for (const auto& pair : registeredInspectorProviders_)
+    else
     {
-        if (object->IsInstanceOf(pair.first))
-        {
-            inspected = true;
-            inspected_.push_back(WeakPtr(object));
-            SharedPtr<InspectorProvider> provider(context_->CreateObject(pair.second)->Cast<InspectorProvider>());
-            provider->SetInspected(object);
-            GetTab<InspectorTab>()->AddProvider(provider);
-        }
+        if (!selectionTab_.Expired())
+            selectionTab_->ClearSelection();
     }
-
-    if (!inspected)
-    {
-        // A special case. If no custom inspector exists we use default inspector for Serializable items. This inspector
-        // is not registered to registeredInspectorProviders_ because we want to use it only if no other inspectors
-        // supporting specified object exist.
-        if (auto* serializable = object->Cast<Serializable>())
-        {
-            inspected_.push_back(WeakPtr(serializable));
-            SharedPtr<InspectorProvider> provider(context_->CreateObject<SerializableInspector>());
-            provider->SetInspected(serializable);
-            GetTab<InspectorTab>()->AddProvider(provider);
-        }
-    }
+    undo->Add<UndoSetSelection>(selectionTab_, selectionBuffer_, tab, newSelection);
+    selectionTab_ = tab;
+    selectionBuffer_ = newSelection;
 }
 
 }

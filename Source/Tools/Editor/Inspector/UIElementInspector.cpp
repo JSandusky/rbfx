@@ -19,31 +19,35 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-#pragma once
+#include <Urho3D/UI/UIElement.h>
+#include <Toolbox/SystemUI/Widgets.h>
+#include <Toolbox/SystemUI/AttributeInspector.h>
 
-#include <Urho3D/Core/Object.h>
+#include "Editor.h"
+#include "Inspector/UIElementInspector.h"
+#include "Tabs/InspectorTab.h"
 
 namespace Urho3D
 {
 
-struct InspectArgs;
-
-class InspectorProvider : public Object
+UIElementInspector::UIElementInspector(Context* context)
+    : Object(context)
 {
-    URHO3D_OBJECT(InspectorProvider, Object);
-public:
-    /// Construct.
-    explicit InspectorProvider(Context* context) : Object(context) { }
-    /// Set currently inspected object.
-    virtual void SetInspected(Object* inspected) { inspected_ = inspected; }
-    /// Render inspector UI.
-    virtual void RenderInspector(const char* filter) = 0;
-    /// Release associated resources.
-    virtual void ClearSelection() { }
+    auto* editor = GetSubsystem<Editor>();
+    editor->onInspect_.Subscribe(this, &UIElementInspector::RenderInspector);
+}
 
-protected:
-    /// Currently inspected object.
-    WeakPtr<Object> inspected_;
-};
+void UIElementInspector::RenderInspector(InspectArgs& args)
+{
+    auto* element = args.object_->Cast<UIElement>();
+    if (element == nullptr)
+        return;
+
+    args.handledTimes_++;
+    ui::IdScope idScope(element);
+    const char* name = element->GetName().empty() ? element->GetTypeName().c_str() : element->GetName().c_str();
+    if (ui::CollapsingHeader(name, ImGuiTreeNodeFlags_DefaultOpen))
+        RenderAttributes(element, args.filter_, args.eventSender_);
+}
 
 }

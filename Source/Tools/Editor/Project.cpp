@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-
-#include <Urho3D/Resource/XMLFile.h>
 #include <Urho3D/Core/CoreEvents.h>
 #include <Urho3D/Core/StringUtils.h>
 #include <Urho3D/Graphics/Graphics.h>
@@ -41,10 +39,13 @@
 
 #include "Editor.h"
 #include "EditorEvents.h"
+#include "Pipeline/Pipeline.h"
 #include "Project.h"
-#include "Plugins/ModulePlugin.h"
-#include "Plugins/ScriptBundlePlugin.h"
-#include "Tabs/ConsoleTab.h"
+#if URHO3D_PLUGINS
+#   include "Plugins/ModulePlugin.h"
+#   include "Plugins/PluginManager.h"
+#   include "Plugins/ScriptBundlePlugin.h"
+#endif
 #include "Tabs/Scene/SceneTab.h"
 #include "Tabs/ResourceTab.h"
 
@@ -58,6 +59,7 @@ Project::Project(Context* context)
 #if URHO3D_PLUGINS
     , plugins_(new PluginManager(context))
 #endif
+    , undo_(new UndoStack(context))
 {
     SubscribeToEvent(E_EDITORRESOURCESAVED, URHO3D_HANDLER(Project, OnEditorResourceSaved));
     SubscribeToEvent(E_RESOURCERENAMED, URHO3D_HANDLER(Project, OnResourceRenamed));
@@ -65,15 +67,19 @@ Project::Project(Context* context)
     SubscribeToEvent(E_ENDFRAME, URHO3D_HANDLER(Project, OnEndFrame));
     context_->RegisterSubsystem(pipeline_);
     context_->RegisterSubsystem(plugins_);
+    context_->RegisterSubsystem(undo_);
 
     // Key bindings
     auto* editor = GetSubsystem<Editor>();
     editor->keyBindings_.Bind(ActionType::SaveProject, this, &Project::SaveProject);
+    editor->keyBindings_.Bind(ActionType::Undo, this, &Project::OnUndo);
+    editor->keyBindings_.Bind(ActionType::Redo, this, &Project::OnRedo);
     editor->settingsTabs_.Subscribe(this, &Project::RenderSettingsUI);
 }
 
 Project::~Project()
 {
+    context_->RemoveSubsystem(undo_->GetType());
     context_->RemoveSubsystem(pipeline_->GetType());
     context_->RemoveSubsystem(plugins_->GetType());
 
@@ -184,6 +190,9 @@ bool Project::LoadProject(const ea::string& projectPath)
                 fs->Delete(fs->GetProgramDir() + fileName);
         }
     }
+#if URHO3D_CSHARP
+    plugins_->Load(ScriptBundlePlugin::GetTypeStatic(), "Scripts");
+#endif
 #endif
     pipeline_->EnableWatcher();
     pipeline_->BuildCache(nullptr, PipelineBuildFlag::SKIP_UP_TO_DATE);
@@ -510,6 +519,22 @@ void Project::OnEndFrame(StringHash, VariantMap&)
         SaveProject();
         saveProjectTimer_.Reset();
     }
+}
+
+void Project::OnUndo()
+{
+    if (ui::IsAnyItemActive() || !undo_->IsTrackingEnabled())
+        return;
+
+    undo_->Undo();
+}
+
+void Project::OnRedo()
+{
+    if (ui::IsAnyItemActive() || !undo_->IsTrackingEnabled())
+        return;
+
+    undo_->Redo();
 }
 
 }

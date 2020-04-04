@@ -26,7 +26,10 @@
 #include <IconFontCppHeaders/IconsFontAwesome5.h>
 #include <nativefiledialog/nfd.h>
 #include <Toolbox/SystemUI/Widgets.h>
+
 #include "Plugins/ModulePlugin.h"
+#include "Pipeline/Flavor.h"
+#include "Pipeline/Pipeline.h"
 #include "Tabs/Scene/SceneTab.h"
 #include "Tabs/PreviewTab.h"
 #include "Editor.h"
@@ -165,7 +168,7 @@ void Editor::RenderProjectMenu()
 
     if (ui::BeginMenu(ICON_FA_BOXES " Repackage files"))
     {
-        Pipeline* pipeline = project_->GetPipeline();
+        auto pipeline = GetSubsystem<Pipeline>();
 
         if (ui::MenuItem("All Flavors"))
         {

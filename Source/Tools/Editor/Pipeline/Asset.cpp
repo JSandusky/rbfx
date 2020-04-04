@@ -41,7 +41,7 @@
 #include "Pipeline/Pipeline.h"
 #include "Pipeline/Asset.h"
 #include "Pipeline/Importers/ModelImporter.h"
-
+#include "Tabs/InspectorTab.h"
 
 namespace Urho3D
 {
@@ -87,7 +87,9 @@ Asset::Asset(Context* context)
 
     SubscribeToEvent(E_EDITORFLAVORADDED, [this](StringHash, VariantMap& args) { OnFlavorAdded(args); });
     SubscribeToEvent(E_EDITORFLAVORREMOVED, [this](StringHash, VariantMap& args) { OnFlavorRemoved(args); });
-    undo_.Connect(this);
+
+    auto undo = GetSubsystem<UndoStack>();
+    undo->Connect(this);
 }
 
 void Asset::RegisterObject(Context* context)
@@ -251,7 +253,6 @@ void Asset::AddFlavor(Flavor* flavor)
     {
         SharedPtr<AssetImporter> importer(context_->CreateObject(importerType->GetType())->Cast<AssetImporter>());
         importer->Initialize(this, flavor);
-        undo_.Connect(importer);
         importers.emplace_back(importer);
     }
 }
@@ -280,9 +281,8 @@ void Asset::ReimportOutOfDateRecursive() const
     if (!IsMetaAsset())
         return;
 
-    auto* fs = context_->GetFileSystem();
-    auto* project = GetSubsystem<Project>();
-    Pipeline* pipeline = project->GetPipeline();
+    auto fs = context_->GetFileSystem();
+    auto pipeline = GetSubsystem<Pipeline>();
 
     StringVector files;
     fs->ScanDir(files, GetResourcePath(), "", SCAN_FILES, true);
@@ -313,24 +313,23 @@ void Asset::OnFlavorRemoved(VariantMap& args)
 
 void Asset::Inspect()
 {
-    ea::vector<Object*> safeSenders{this};
-    auto* editor = GetSubsystem<Editor>();
+    auto* inspector = GetSubsystem<InspectorTab>();
     auto* pipeline = GetSubsystem<Pipeline>();
     auto* cache = GetSubsystem<ResourceCache>();
-    editor->ClearInspector();
+    auto* undo = GetSubsystem<UndoStack>();
+    inspector->Clear();
     // Asset inspector will show inspectors for importers.
-    editor->Inspect(this);
+    inspector->Inspect(this);
     // Show inspectors for byproducts too.
     for (AssetImporter* importer : GetImporters(pipeline->GetDefaultFlavor()))
     {
-        safeSenders.push_back(importer);
         for (const ea::string& byproduct : importer->GetByproducts())
         {
             if (StringHash resourceType = GetContentResourceType(context_, byproduct))
             {
                 Resource* resource = cache->GetResource(resourceType, byproduct);
-                editor->Inspect(resource);
-                undo_.Connect(resource);
+                inspector->Inspect(resource);
+                undo->Connect(resource);    // ??
             }
         }
     }
@@ -339,8 +338,8 @@ void Asset::Inspect()
     {
         if (Resource* resource = cache->GetResource(resourceType, GetName()))
         {
-            editor->Inspect(resource);
-            undo_.Connect(resource);
+            inspector->Inspect(resource);
+            undo->Connect(resource);    // ??
         }
     }
 }

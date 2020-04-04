@@ -19,48 +19,36 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-
 #pragma once
 
-
-#include <Toolbox/Graphics/SceneView.h>
-#include "Inspector/InspectorProvider.h"
-
+#include <Toolbox/Common/UndoStack.h>
 
 namespace Urho3D
 {
 
-class Model;
+class Tab;
+class SceneTab;
+class ResourceTab;
 
-/// Renders a model preview in attribute inspector.
-class PreviewInspector : public InspectorProvider
+class UndoSetSelection : public UndoAction
 {
-    URHO3D_OBJECT(PreviewInspector, InspectorProvider);
 public:
-    /// Construct.
-    explicit PreviewInspector(Context* context);
-
-    /// Copy effects from specified render path.
-    void SetEffectSource(RenderPath* renderPath);
-    /// Set preview model by passing a resource name.
-    void SetModel(const ea::string& resourceName);
-    /// Set preview model by passing model resourcei nstance.
-    void SetModel(Model* model);
+    ///
+    UndoSetSelection(Tab* oldTab, ByteVector  oldSelection, Tab* newTab, ByteVector  newSelection);
+    ///
+    bool Undo(Context* context) override;
+    ///
+    bool Redo(Context* context) override;
 
 protected:
-    /// Initialize preview.
-    void CreateObjects();
-    /// Render model preview.
-    virtual void RenderPreview();
-
-    /// Preview scene.
-    SceneView view_;
-    /// Node holding figure to which material is applied.
-    WeakPtr<Node> node_;
-    /// Flag indicating if this widget grabbed mouse for rotating material node.
-    bool mouseGrabbed_ = false;
-    /// Distance from camera to figure.
-    float distance_ = 1.5f;
+    ///
+    WeakPtr<Tab> oldTab_;
+    ///
+    ByteVector oldSelection_;
+    ///
+    WeakPtr<Tab> newTab_;
+    ///
+    ByteVector newSelection_;
 };
 
 }

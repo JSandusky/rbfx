@@ -23,7 +23,7 @@
 #pragma once
 
 
-#include <Toolbox/Common/UndoManager.h>
+#include <Toolbox/Common/UndoStack.h>
 #include "Tabs/BaseResourceTab.h"
 #include "Tabs/UI/RootUIElement.h"
 
@@ -55,6 +55,10 @@ public:
     void OnFocused() override;
     /// Return selected UIElement.
     UIElement* GetSelected() const;
+    /// Clear any user selection tracked by this tab.
+    void ClearSelection() override;
+    /// Serialize current user selection into a buffer and return it.
+    bool SerializeSelection(Archive& archive) override;
 
 protected:
     /// Render scene hierarchy window.

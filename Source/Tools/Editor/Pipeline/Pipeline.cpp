@@ -46,7 +46,9 @@
 #include "EditorEvents.h"
 #include "Project.h"
 #include "Pipeline/Pipeline.h"
+#include "Plugins/PluginManager.h"
 #include "Plugins/ModulePlugin.h"
+#include "Tabs/InspectorTab.h"
 
 namespace Urho3D
 {
@@ -138,11 +140,11 @@ void Pipeline::OnEndFrame(StringHash, VariantMap&)
 
     if (!dirtyAssets_.empty())
     {
-        auto* editor = GetSubsystem<Editor>();
+        auto* inspector = GetSubsystem<InspectorTab>();
         MutexLock lock(mutex_);
         Asset* dirty = dirtyAssets_.back();
         dirty->Save();
-        if (editor->IsInspected(dirty))
+        if (inspector->IsInspected(dirty))
         {
             // Asset import may introduce new imported resources which we want to be appear in inspection if importing
             // asset was selected when import triggered.
@@ -908,7 +910,7 @@ void Pipeline::RenderSettingsUI()
                     ui::SameLine();
                     ui::SetCursorPosX(startPos + 180 + ui::GetStyle().ItemSpacing.x);
                     UI_ITEMWIDTH(100)
-                        RenderSingleAttribute(value);
+                        RenderAttribute("", value);
                     ui::SameLine();
                     ui::SetCursorPosX(startPos + 280 + ui::GetStyle().ItemSpacing.x);
                     if (ui::Button(ICON_FA_TRASH))

@@ -23,6 +23,7 @@
 #include <EASTL/sort.h>
 
 #include <Urho3D/Graphics/Graphics.h>
+#include <Urho3D/IO/ArchiveSerialization.h>
 #include <Urho3D/IO/FileSystem.h>
 #include <Urho3D/IO/Log.h>
 #include <Urho3D/Input/Input.h>
@@ -66,11 +67,10 @@ UITab::UITab(Context* context)
     offScreenUI_->SetRoot(rootElement_);
     offScreenUI_->SetRenderTarget(texture_, Color::BLACK);
 
-    undo_.Connect(rootElement_);
-    undo_.Connect(&inspector_);
+    undo_->Connect(static_cast<UIElement*>(rootElement_.Get()), this);
 
-    SubscribeToEvent(E_ATTRIBUTEINSPECTORMENU, std::bind(&UITab::AttributeMenu, this, _2));
-    SubscribeToEvent(E_ATTRIBUTEINSPECTOATTRIBUTE, std::bind(&UITab::AttributeCustomize, this, _2));
+    SubscribeToEvent(rootElement_, E_ATTRIBUTEINSPECTORMENU, std::bind(&UITab::AttributeMenu, this, _2));
+    SubscribeToEvent(rootElement_, E_ATTRIBUTEINSPECTOATTRIBUTE, std::bind(&UITab::AttributeCustomize, this, _2));
 
     AutoLoadDefaultStyle();
 }
@@ -256,8 +256,8 @@ bool UITab::RenderWindowContent()
         if (s->resizeActive_ && !ui::IsItemActive())
         {
             s->resizeActive_ = false;
-            undo_.Track<Undo::EditAttributeAction>(selected, "Position", s->resizeStartPos_, selected->GetPosition());
-            undo_.Track<Undo::EditAttributeAction>(selected, "Size", s->resizeStartSize_, selected->GetSize());
+            undo_->Add<UndoEditAttribute>(selected, "Position", s->resizeStartPos_, selected->GetPosition());
+            undo_->Add<UndoEditAttribute>(selected, "Size", s->resizeStartSize_, selected->GetSize());
         }
     }
 
@@ -335,7 +335,7 @@ bool UITab::LoadResource(const ea::string& resourcePath)
         return false;
     }
 
-    Undo::SetTrackingScoped noTrack(undo_, false);
+    UndoTrackGuard noTrack(undo_, false);
 
     auto cache = GetSubsystem<ResourceCache>();
     rootElement_->RemoveAllChildren();
@@ -387,8 +387,7 @@ bool UITab::LoadResource(const ea::string& resourcePath)
         return false;
     }
 
-    undo_.Clear();
-    lastUndoIndex_ = undo_.Index();
+    undo_->Clear();
 
     return true;
 }
@@ -479,10 +478,13 @@ void UITab::SelectItem(UIElement* current)
         textureSelectorAttribute_.clear();
 
     selectedElement_ = current;
+    using namespace EditorSelectionChanged;
+    SendEvent(E_EDITORSELECTIONCHANGED, P_TAB, this);
 
     auto* editor = GetSubsystem<Editor>();
-    editor->ClearInspector();
-    editor->Inspect(current);
+    auto* inspector = GetSubsystem<InspectorTab>();
+    inspector->Clear();
+    inspector->Inspect(current, rootElement_);
     editor->GetTab<HierarchyTab>()->SetProvider(this);
 }
 
@@ -673,8 +675,8 @@ void UITab::RenderRectSelector()
         else if (!ui::IsItemActive() && s->isResizing_)
         {
             s->isResizing_ = false;
-            undo_.Track<Undo::EditAttributeAction>(selected, textureSelectorAttribute_, s->startRect_,
-                selected->GetAttribute(textureSelectorAttribute_));
+            undo_->Add<UndoEditAttribute>(selected, textureSelectorAttribute_, s->startRect_,
+                                         selected->GetAttribute(textureSelectorAttribute_));
         }
     }
     ui::End();
@@ -757,7 +759,7 @@ void UITab::AttributeMenu(VariantMap& args)
                         styleAttribute.SetAttribute("name", info->name_);
                     }
                     // To save some writing undo system performs value update action as well.
-                    undo_.Track<Undo::EditUIStyleAction>(selected, styleAttribute, value);
+                    undo_->Add<UndoEditUIStyle>(selected, styleAttribute, value);
                 }
             }
         }
@@ -767,7 +769,7 @@ void UITab::AttributeMenu(VariantMap& args)
             if (ui::MenuItem("Remove from style"))
             {
                 // To save some writing undo system performs value update action as well. Empty variant means removal.
-                undo_.Track<Undo::EditUIStyleAction>(selected, styleAttribute, Variant::EMPTY);
+                undo_->Add<UndoEditUIStyle>(selected, styleAttribute, Variant::EMPTY);
             }
         }
 
@@ -814,6 +816,29 @@ void UITab::OnFocused()
 {
     auto* editor = GetSubsystem<Editor>();
     editor->GetTab<HierarchyTab>()->SetProvider(this);
+}
+
+void UITab::ClearSelection()
+{
+    selectedElement_ = nullptr;
+    using namespace EditorSelectionChanged;
+    SendEvent(E_EDITORSELECTIONCHANGED, P_TAB, this);
+}
+
+bool UITab::SerializeSelection(Archive& archive)
+{
+    if (auto block = archive.OpenSequentialBlock("selection"))
+    {
+        UIElementPath path;
+        if (!archive.IsInput())
+            path = GetUIElementPath(selectedElement_);
+        if (!SerializeVector(archive, "path", "index", path))
+            return false;
+        if (archive.IsInput())
+            selectedElement_ = GetUIElementByPath(rootElement_, path);
+        return true;
+    }
+    return false;
 }
 
 }
