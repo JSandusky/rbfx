@@ -333,7 +333,11 @@ void CubemapRenderer::FilterCubemap(TextureCube* sourceTexture, TextureCube* des
         drawQueue->AddUnorderedAccessView("OutputTexture", destTexture, RawTextureUAVKey{}.FromLevel(i));
         drawQueue->CommitUnorderedAccessViews();
 
-        drawQueue->Dispatch({destTexture->GetLevelWidth(i), destTexture->GetLevelHeight(i), 6});
+        // the compute shader pulled is 16x16
+        // Calculation is (TargetTotalThreads + THREADS_IN_A_GROUP - 1) / THREADS_IN_A_GROUP
+        int grpX = (destTexture->GetLevelWidth(i) + 16 - 1) / 16;
+        int grpY = (destTexture->GetLevelHeight(i) + 16 - 1) / 16;
+        drawQueue->Dispatch({grpX, grpY, 6});
     }
 
     renderContext->ResetRenderTargets();
